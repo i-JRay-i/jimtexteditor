@@ -24,6 +24,6 @@ The editor code does not take more than 2000 lines. However, I decided to divide
 - syntax highlighting
 - configuration file
 
-Disclaimer: I am an electrical engineer by profession and I learn computer architecture and systems programming as a hobby in my free time. I am in no way a professional programmer or software developer. Any suggestions, criticisms, improvements, or resources are highly welcome.
+**Disclaimer**: I am an electrical engineer by profession and I learn computer architecture and systems programming as a hobby in my free time. I am in no way a professional programmer or software developer. Any suggestions, criticisms, improvements, or resources are highly welcome.
 
-Disclaimer 2: As of now, the text editor is work under progress and still lacks to be properly called a text editor (namely editing texts in a file). A production-ready software will be ready as soon as I finish the code for file input.
+**Disclaimer 2**: As of now, the text editor is work under progress and still lacks to be properly called a text editor (namely editing texts in a file). A production-ready software will be ready as soon as I finish the code for file input.
