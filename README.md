@@ -11,7 +11,7 @@ A VIM clone written in C
 
 JIM is a hobby project initiated a month ago as a practice for programming in C. The idea was to use C with standard libraries in order to understand the details of terminal-based software development with C on Linux environment. This project is essentially based on SnapToken's tutorial [*Text Editor in C*](https://viewsourcecode.org/snaptoken/kilo/), which itself is a modified version of Antirez's [*Kilo*](https://github.com/antirez/kilo) text editor. Under the hood, the basic architecture of the JIM text editor resembles Kilo (such as line-based rendering), however, the JIM editor contains further features, such as editor modes and motion keys inspired by VIM.
 
-The editor is named after my nickname (Jimmy Ray) and the editor it was inspired by (VIM).
+The JIM editor is named after my nickname (Jimmy Ray) and the editor that inspired it (VI/M).
 
 The editor code does not take more than 2000 lines. However, I decided to divide the source code into multiple files in order to learn how to use make. 
 
