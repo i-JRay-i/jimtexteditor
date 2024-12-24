@@ -78,9 +78,11 @@ void drawEditorScreen(OBuf *ob) {
 
 void drawStatusBar(OBuf *ob) {        // Drawing the status bar
   int stat_str_crsr = 0;
+  char stat_str_right[100];
+  int right_len = snprintf(stat_str_right, 100, "%d/%d", E.crsr_y+1, E.num_row);
 
   bufAppend(ob, "\x1b[7m", 4);
-  for (int stat_crsr = 0; stat_crsr < E.term_width; stat_crsr++) {
+  for (int stat_crsr = 0; stat_crsr < E.term_width - right_len - 1; stat_crsr++) {
     if (stat_crsr > 1 && stat_crsr < E.estat.stat_len + 2) {
       bufAppend(ob, &E.estat.stat_str[stat_str_crsr], 1);
       stat_str_crsr++;
@@ -88,7 +90,8 @@ void drawStatusBar(OBuf *ob) {        // Drawing the status bar
       bufAppend(ob, " ", 1);
     }
   }
-  bufAppend(ob, "\x1b[m", 3);
+  bufAppend(ob, stat_str_right, right_len);
+  bufAppend(ob, " \x1b[m", 4);
   bufAppend(ob, "\r\n", 2);
 }
 
@@ -100,31 +103,49 @@ void drawMessageBar(OBuf *ob) {
       bufAppend(ob, &E.emsg.msg_str[msg_str_crsr], 1);
       msg_str_crsr++;
     } else {
-      bufAppend(ob, ".", 1);
+      bufAppend(ob, " ", 1);
     }
   }
 }
 
-void setStatusMessage(void) {
+void setStatusString(void) {
+  char stat_str[100];
+  int stat_len = snprintf(stat_str, 100, "%.20s - %d lines, ",
+                     E.filename ? E.filename : "[No Name", E.num_row);
+  appendStatusString(stat_str, stat_len);
+
   if (E.emode == MODE_NORMAL) {
-    appendStatusMessage("NORMAL", 6);
+    appendStatusString("NORMAL", 6);
   } else if (E.emode == MODE_INSERT) {
-    appendStatusMessage("INSERT", 6);
+    appendStatusString("INSERT", 6);
   } else if (E.emode == MODE_COMMAND) {
-    appendStatusMessage("COMMAND: ", 9);
-    appendStatusMessage(E.cmd.cmd_str, E.cmd.cmd_len);
+    appendStatusString("COMMAND", 7);
   }
 }
 
-void resetStatusMessage(void) {
+void setMessageString(void) {
+  if (E.emode == MODE_COMMAND) {
+    appendMessageString(":", 1);
+    appendMessageString(E.cmd.cmd_str, E.cmd.cmd_len);
+  } else {
+    appendMessageString("",0);
+  }
+}
+
+void resetStatusString(void) {
   E.estat.stat_str[0] = '\0';
   E.estat.stat_len = 0;
 }
 
+void resetMessageString(void) {
+  E.emsg.msg_str[0] = '\0';
+  E.emsg.msg_len = 0;
+}
+
 void setCursor(void) {
   if (E.emode == MODE_COMMAND) {
-    E.crsr_cmd_x = E.estat.stat_len+2;
-    E.crsr_cmd_y = E.term_height-2;
+    E.crsr_cmd_x = E.emsg.msg_len + 2;
+    E.crsr_cmd_y = E.term_height-1;
     E.crsr_rndr_x = E.crsr_cmd_x + 1;
     E.crsr_rndr_y = E.crsr_cmd_y + 1;
   } else {
@@ -165,7 +186,8 @@ void refreshScreen(void) {
   drawEditorScreen(&ob);
 
   // Drawing the status and message bars
-  setStatusMessage();
+  setStatusString();
+  setMessageString();
   drawStatusBar(&ob);
   drawMessageBar(&ob);
 
@@ -179,7 +201,8 @@ void refreshScreen(void) {
 
   write(STDOUT_FILENO, ob.str, ob.p_str);
 
-  resetStatusMessage();
+  resetStatusString();
+  resetMessageString();
   bufFree(&ob);
 }
 

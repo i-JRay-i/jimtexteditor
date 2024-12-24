@@ -45,7 +45,7 @@ void erowAppend(char *str, size_t len) {
   E.num_row += 1;
 }
 
-void editorInsertChar(ERow *erow, int curr, int ch) {
+void erowInsertChar(ERow *erow, int curr, int ch) {
   if (curr < 0 || curr > erow->row_len)
     curr = erow->row_len;
   erow->row_str = realloc(erow->row_str, erow->row_len + 2);
@@ -55,7 +55,47 @@ void editorInsertChar(ERow *erow, int curr, int ch) {
   erowRender(erow);
 }
 
+char *writeFile(int *len_file) {
+  int len_total = 0;
+  for (int row_idx = 0; row_idx < E.num_row; row_idx++)
+    len_total += E.erow[row_idx].row_len + 1;
+  *len_file = len_total;
+
+  char *file = malloc(len_total);
+  char *p_file = file;
+  for (int row_idx = 0; row_idx < E.num_row; row_idx++) {
+    memcpy(p_file, E.erow[row_idx].row_str, E.erow[row_idx].row_len);
+    p_file += E.erow[row_idx].row_len;
+    *p_file = '\n';
+    p_file++;
+  }
+  return file;
+}
+
+void saveFile(void) {
+  if (E.filename == NULL) return;
+
+  int len = 0;
+  char *file = writeFile(&len);
+
+  int fd = open(E.filename, (O_RDWR | O_CREAT), 0644);
+  if (fd != -1) {
+    if (ftruncate(fd, len) != -1) {
+      if (write(fd, file, len) == len) {
+        close(fd);
+        free(file);
+        return;
+      }
+    }
+    close(fd);
+  }
+
+  free(file);
+}
+
 void openFile(char *filename) {
+  E.filename = filename;
+
   FILE *p_file = fopen(filename, "r");
   if (!p_file)
     die("fopen");

@@ -26,6 +26,7 @@ typedef enum editor_key {
   MOVE_LEFT,
   MOVE_RIGHT,
   MOVE_WORD_FORWARD,
+  MOVE_WORD_FORWARD_END,
   MOVE_WORD_BACKWARD,
   HALF_PAGE_UP,
   HALF_PAGE_DOWN,
@@ -37,8 +38,10 @@ typedef enum editor_key {
   INSERT_KEY,
   COMMAND_KEY,
   ENTER_COMMAND_KEY,
+  SAVE_KEY,
   EXIT_KEY,
-  ERASE_LEFT_KEY
+  ERASE_LEFT_KEY,
+  ERASE_RIGHT_KEY
 } Key;
 
 /* Editor row structure */
@@ -77,6 +80,7 @@ typedef struct editor_config { // Configuration variables for the editor
   EStat estat; // Editor status bar object
   EMsg emsg; // Editor message bar object
   CMD cmd;
+  char *filename;
   struct termios term_conf_editor;
 } EConf;
 
@@ -89,9 +93,10 @@ void processKey(void);
 void editorScroll(void);
 void initEditor(void);
 void disableRawMode(void);
-void appendStatusMessage(char *, int);
-void appendMessage(char *, int);
+void appendStatusString(char *, int);
+void appendMessageString(char *, int);
 int getWindowSize(int *, int *);
 void insertChar(int);
+void saveFile(void);
 
 #endif

@@ -204,6 +204,7 @@ void processNormal(int key) {
 int mapKeyInsert (int key) {
   switch (key) {
     case CTRL_KEY('q'): return EXIT_KEY;
+    case 127: return ERASE_LEFT_KEY;
     case '\x1b': 
       {
         char escseq[4];
@@ -217,6 +218,8 @@ int mapKeyInsert (int key) {
             case 'C': return MOVE_RIGHT;
             case 'D': return MOVE_LEFT;
           }
+          if (escseq[1] == '3' && escseq[2] == '~')
+            return ERASE_RIGHT_KEY;
         }
         return NORMAL_KEY;
       }
@@ -234,6 +237,9 @@ void processInsert (int key) {
       break;
     case NORMAL_KEY:
       E.emode = MODE_NORMAL;
+      break;
+    case ERASE_LEFT_KEY:
+    case ERASE_RIGHT_KEY:
       break;
     case MOVE_LEFT:
     case MOVE_DOWN:
@@ -280,6 +286,8 @@ void enterCommand(void) {
     write(STDOUT_FILENO, "\x1b[H", 3);
     disableRawMode();
     exit(0);
+  } else if (!strcmp(E.cmd.cmd_str, "w")) {
+    saveFile();
   } else if (E.cmd.cmd_str[0] == '!') {
     system(&E.cmd.cmd_str[1]);
   } else {
@@ -343,13 +351,13 @@ void processKey(void) {
   }
 }
 
-void appendStatusMessage(char *str, int str_len) {
+void appendStatusString(char *str, int str_len) {
   memcpy(&E.estat.stat_str[E.estat.stat_len], str, str_len);
   E.estat.stat_str[E.estat.stat_len+str_len] = '\0';
   E.estat.stat_len = strlen(E.estat.stat_str);
 }
 
-void appendMessage(char *str, int str_len) {
+void appendMessageString(char *str, int str_len) {
   memcpy(&E.emsg.msg_str[E.emsg.msg_len], str, str_len);
   E.emsg.msg_str[E.emsg.msg_len+str_len] = '\0';
   E.emsg.msg_len = strlen(E.emsg.msg_str);
@@ -401,4 +409,6 @@ void initEditor(void) {
 
   E.cmd.cmd_str[0] = '\0';
   E.cmd.cmd_len = 0;
+
+  E.filename = NULL;
 }
