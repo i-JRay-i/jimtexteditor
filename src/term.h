@@ -3,13 +3,17 @@
 
 #include <unistd.h>
 #include <termios.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <time.h>
 
+#define HELP_MSG "HELP: :q = quit | :w = save | :q! = quit wout save | :help = print this message"
 #define JIM_VERSION "0.0.1"
 #define TAB_SIZE 8
+#define MSG_TIME 3
 #define PAGE_SIZE 64
 #define HALF_PAGE_SIZE 32
 
@@ -60,7 +64,7 @@ typedef struct editor_status {
 typedef struct editor_message {
   char msg_str[512];
   int msg_len;
-  int msg_time;
+  time_t msg_time;
 } EMsg;
 
 typedef struct editor_command {
@@ -75,6 +79,7 @@ typedef struct editor_config { // Configuration variables for the editor
   int crsr_rndr_x, crsr_rndr_y; // Rendered cursor coordinates
   int row_off, col_off; // Editor row and column offest
   int num_row; // The total number of rows in the open file
+  int dirt_flag_pos, dirt_flag_neg; // Dirt flags to record bytes added/removed
   ERow *erow; // An array of ERow struct
   EMode emode; // Editor mode
   EStat estat; // Editor status bar object
@@ -97,6 +102,8 @@ void appendStatusString(char *, int);
 void appendMessageString(char *, int);
 int getWindowSize(int *, int *);
 void insertChar(int);
+void deleteChar(void);
 void saveFile(void);
+void setMessage(const char *, ...);
 
 #endif

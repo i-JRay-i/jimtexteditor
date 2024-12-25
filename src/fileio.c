@@ -43,6 +43,16 @@ void erowAppend(char *str, size_t len) {
   erowRender(&E.erow[cur_row]);
 
   E.num_row += 1;
+  E.dirt_flag_pos++;
+}
+
+void erowAppendString(ERow *erow, char *str, size_t str_len) {
+  erow->row_str = realloc(erow->row_str, erow->row_len+str_len+1);
+  memcpy(&erow->row_str[erow->row_len], str, str_len);
+  erow->row_len+=str_len;
+  erow->row_str[erow->row_len] = '\0';
+  erowRender(erow);
+  E.dirt_flag_pos++;
 }
 
 void erowInsertChar(ERow *erow, int curr, int ch) {
@@ -52,7 +62,33 @@ void erowInsertChar(ERow *erow, int curr, int ch) {
   memmove(&erow->row_str[curr+1], &erow->row_str[curr], erow->row_len-curr+1);
   erow->row_len++;
   erow->row_str[curr] = ch;
+
   erowRender(erow);
+  E.dirt_flag_pos++;
+}
+
+
+void erowDeleteChar(ERow *erow, int crsr_pos) {
+  if (crsr_pos < 0 || crsr_pos >= erow->row_len)
+    return;
+  memmove(&erow->row_str[crsr_pos], &erow->row_str[crsr_pos+1], erow->row_len - crsr_pos);
+  erow->row_len--;
+  erowRender(erow);
+  E.dirt_flag_neg++;
+}
+
+void erowFree(ERow *erow) {
+  free(erow->rndr_str);
+  free(erow->row_str);
+}
+
+void erowDelete(int curr_row) {
+  if (curr_row < 0 || curr_row >= E.num_row)
+    return;
+  erowFree(&E.erow[curr_row]);
+  memmove(&E.erow[curr_row], &E.erow[curr_row+1], sizeof(ERow) * (E.num_row-curr_row-1));
+  E.num_row--;
+  E.dirt_flag_neg++;
 }
 
 char *writeFile(int *len_file) {
@@ -84,6 +120,9 @@ void saveFile(void) {
       if (write(fd, file, len) == len) {
         close(fd);
         free(file);
+        E.dirt_flag_pos = 0;
+        E.dirt_flag_neg = 0;
+        setMessage("%d bytes written to disk.", len);
         return;
       }
     }
@@ -91,6 +130,7 @@ void saveFile(void) {
   }
 
   free(file);
+  setMessage("Can't save: I/O error: %s", strerror(errno));
 }
 
 void openFile(char *filename) {
@@ -113,4 +153,5 @@ void openFile(char *filename) {
 
   free(line);
   fclose(p_file);
+  E.dirt_flag_pos = 0;
 }

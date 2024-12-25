@@ -207,19 +207,24 @@ int mapKeyInsert (int key) {
     case 127: return ERASE_LEFT_KEY;
     case '\x1b': 
       {
-        char escseq[4];
+        char escseq[8];
         if (read(STDIN_FILENO, &escseq[0], 1) != 1) return NORMAL_KEY;
         if (read(STDIN_FILENO, &escseq[1], 1) != 1) return NORMAL_KEY;
 
         if (escseq[0] == '[') {
-          switch (escseq[1]) {
-            case 'A': return MOVE_UP;
-            case 'B': return MOVE_DOWN;
-            case 'C': return MOVE_RIGHT;
-            case 'D': return MOVE_LEFT;
+          if (read(STDIN_FILENO, &escseq[2], 1) != 1) return NORMAL_KEY;
+          if (escseq[2] == '~') {
+            switch (escseq[1]) {
+              case '3': return ERASE_RIGHT_KEY;
+            }
+          } else {
+            switch (escseq[1]) {
+              case 'A': return MOVE_UP;
+              case 'B': return MOVE_DOWN;
+              case 'C': return MOVE_RIGHT;
+              case 'D': return MOVE_LEFT;
+            }
           }
-          if (escseq[1] == '3' && escseq[2] == '~')
-            return ERASE_RIGHT_KEY;
         }
         return NORMAL_KEY;
       }
@@ -240,6 +245,9 @@ void processInsert (int key) {
       break;
     case ERASE_LEFT_KEY:
     case ERASE_RIGHT_KEY:
+      if (key == ERASE_RIGHT_KEY)
+        moveCursor(MOVE_RIGHT);
+      deleteChar();
       break;
     case MOVE_LEFT:
     case MOVE_DOWN:
@@ -282,16 +290,33 @@ int mapKeyCommand(int key) {
 
 void enterCommand(void) {
   if (!strcmp(E.cmd.cmd_str, "q")) {
+    if ((E.dirt_flag_pos || E.dirt_flag_neg)) {
+      setMessage("Warning: File has unsaved changes.");
+      return;
+    }
     write(STDOUT_FILENO, "\x1b[2J", 4);
     write(STDOUT_FILENO, "\x1b[H", 3);
     disableRawMode();
     exit(0);
   } else if (!strcmp(E.cmd.cmd_str, "w")) {
     saveFile();
+  } else if (!strcmp(E.cmd.cmd_str, "wq")) {
+    saveFile();
+    write(STDOUT_FILENO, "\x1b[2J", 4);
+    write(STDOUT_FILENO, "\x1b[H", 3);
+    disableRawMode();
+    exit(0);
+  } else if (!strcmp(E.cmd.cmd_str, "q!")) {
+    write(STDOUT_FILENO, "\x1b[2J", 4);
+    write(STDOUT_FILENO, "\x1b[H", 3);
+    disableRawMode();
+    exit(0);
+  } else if (!strcmp(E.cmd.cmd_str, "help")) {
+    setMessage(HELP_MSG);
   } else if (E.cmd.cmd_str[0] == '!') {
     system(&E.cmd.cmd_str[1]);
   } else {
-    strcpy(E.emsg.msg_str, "Error: invalid command");
+    setMessage("Invalid command.");
   }
 }
 
@@ -363,6 +388,16 @@ void appendMessageString(char *str, int str_len) {
   E.emsg.msg_len = strlen(E.emsg.msg_str);
 }
 
+void setMessage(const char *fmt, ...) {
+  char msg_buf[256];
+  va_list ap;
+  va_start(ap, fmt);
+  vsnprintf(msg_buf, 256, fmt, ap);
+  va_end(ap);
+  appendMessageString(msg_buf, strlen(msg_buf));
+  E.emsg.msg_time = time(NULL);
+}
+
 void disableRawMode(void) {
   if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &term_conf_def) == -1)
     die("tcsetattr");
@@ -394,6 +429,7 @@ void initEditor(void) {
   E.crsr_cmd_x = 0; E.crsr_cmd_y = 0;
   E.crsr_rndr_x = 0; E.crsr_rndr_y = 0;
   E.row_off = 0; E.col_off = 0;
+  E.dirt_flag_pos = 0; E.dirt_flag_neg = 0;
   E.emode = MODE_NORMAL;
 
   // Initially there is no rows to draw
@@ -405,7 +441,7 @@ void initEditor(void) {
 
   E.emsg.msg_str[0] = '\0';
   E.emsg.msg_len = 0;
-  E.emsg.msg_time = 5;
+  E.emsg.msg_time = 0;
 
   E.cmd.cmd_str[0] = '\0';
   E.cmd.cmd_len = 0;
