@@ -79,9 +79,9 @@ void drawEditorScreen(OBuf *ob) {
 void drawStatusBar(OBuf *ob) {        // Drawing the status bar
   int stat_str_crsr = 0;
   char stat_str_right[100];
-  int right_len = snprintf(stat_str_right, 100, "%s %d/%d", 
+  int right_len = snprintf(stat_str_right, 100, "%s %d - %d", 
                            (E.dirt_flag_pos || E.dirt_flag_neg) ? "modified, " : "",
-                           E.crsr_y+1, E.num_row);
+                           E.crsr_y+1, E.crsr_x+1);
 
   bufAppend(ob, "\x1b[7m", 4);
   for (int stat_crsr = 0; stat_crsr < E.term_width - right_len - 1; stat_crsr++) {
@@ -113,7 +113,7 @@ void drawMessageBar(OBuf *ob) {
 void setStatusString(void) {
   char stat_str[100];
   int stat_len = snprintf(stat_str, 100, "%.20s - %d lines - ",
-                     E.filename ? E.filename : "[No Name]", E.num_row);
+                     E.filename ? E.filename : "[No File]", E.num_row);
   appendStatusString(stat_str, stat_len);
 
   if (E.emode == MODE_NORMAL) {

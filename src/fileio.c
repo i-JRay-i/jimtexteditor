@@ -29,10 +29,12 @@ void erowRender(ERow *erow) {
   erow->rndr_len = rndr_idx;
 }
 
-void erowAppend(char *str, size_t len) {
+void erowAppend(int cur_row, char *str, size_t len) {
+  if (cur_row < 0 || cur_row > E.num_row)
+    return;
   E.erow = realloc(E.erow, sizeof(ERow)*(E.num_row+1));
+  memmove(&E.erow[cur_row+1], &E.erow[cur_row], sizeof(ERow)*(E.num_row-cur_row));
 
-  int cur_row = E.num_row;
   E.erow[cur_row].row_len = len;
   E.erow[cur_row].row_str = malloc(len+1);
   memcpy(E.erow[cur_row].row_str, str, len);
@@ -42,7 +44,7 @@ void erowAppend(char *str, size_t len) {
   E.erow[cur_row].rndr_str = NULL;
   erowRender(&E.erow[cur_row]);
 
-  E.num_row += 1;
+  E.num_row++;
   E.dirt_flag_pos++;
 }
 
@@ -67,6 +69,20 @@ void erowInsertChar(ERow *erow, int curr, int ch) {
   E.dirt_flag_pos++;
 }
 
+void erowInsertRow(void) {
+  if (E.crsr_x == 0) {
+    erowAppend(E.crsr_y, "", 0);
+  } else {
+    ERow *erow = &E.erow[E.crsr_y];
+    erowAppend(E.crsr_y+1, &erow->row_str[E.crsr_x], erow->row_len - E.crsr_x);
+    erow = &E.erow[E.crsr_y];
+    erow->row_len = E.crsr_x;
+    erow->row_str[erow->row_len] = '\0';
+    erowRender(erow);
+  }
+  E.crsr_y++;
+  E.crsr_x=0;
+}
 
 void erowDeleteChar(ERow *erow, int crsr_pos) {
   if (crsr_pos < 0 || crsr_pos >= erow->row_len)
@@ -108,8 +124,40 @@ char *writeFile(int *len_file) {
   return file;
 }
 
+char *newsavePrompt(char *prompt, int prompt_len) {
+  size_t max_len = 256;
+  char *input = malloc(max_len);
+  size_t input_len = 0;
+  input[0] = '\0';
+
+  E.cmd.cmd_str[0] = '\0';
+  E.cmd.cmd_len = 0;
+
+  while (1) {
+    appendMessageString(prompt, prompt_len);
+    int ch = readKey();
+    if (ch == '\r') {
+      if (input_len != 0) {
+        appendMessageString("", 0);
+        return input;
+      }
+    } else if (!iscntrl(ch) && ch < 128) {
+      if (input_len == max_len-1) {
+        max_len += 255;
+        input = realloc(input, max_len);
+      }
+      input[input_len++] = ch;
+      input[input_len] = '\0';
+    }
+    appendMessageString(input, input_len);
+    refreshScreen();
+  }
+}
+
 void saveFile(void) {
-  if (E.filename == NULL) return;
+  if (E.filename == NULL) {
+    E.filename = newsavePrompt("Save as", 7);
+  }
 
   int len = 0;
   char *file = writeFile(&len);
@@ -137,8 +185,11 @@ void openFile(char *filename) {
   E.filename = filename;
 
   FILE *p_file = fopen(filename, "r");
-  if (!p_file)
-    die("fopen");
+  if (!p_file) {
+    int fd = open(E.filename, (O_RDWR | O_CREAT), 0644);
+    close(fd);
+    p_file = fopen(filename, "r");
+  }
 
   char *line = NULL;
   size_t line_cap = 0;
@@ -148,7 +199,7 @@ void openFile(char *filename) {
     while (line_len > 0 && (line[line_len-1] == '\n' || line[line_len-1] == '\r')) {
       line_len -= 1;
     }
-    erowAppend(line, line_len);
+    erowAppend(E.num_row, line, line_len);
   }
 
   free(line);

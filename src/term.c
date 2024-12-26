@@ -204,6 +204,7 @@ void processNormal(int key) {
 int mapKeyInsert (int key) {
   switch (key) {
     case CTRL_KEY('q'): return EXIT_KEY;
+    case '\r': return NEWLINE_KEY;
     case 127: return ERASE_LEFT_KEY;
     case '\x1b': 
       {
@@ -242,6 +243,9 @@ void processInsert (int key) {
       break;
     case NORMAL_KEY:
       E.emode = MODE_NORMAL;
+      break;
+    case NEWLINE_KEY:
+      erowInsertRow();
       break;
     case ERASE_LEFT_KEY:
     case ERASE_RIGHT_KEY:

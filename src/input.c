@@ -2,7 +2,7 @@
 
 void insertChar(int ch) {
   if (E.crsr_y == E.num_row)
-    erowAppend("",0);
+    erowAppend(E.num_row, "",0);
   erowInsertChar(&E.erow[E.crsr_y], E.crsr_x, ch);
   E.crsr_x++;
 }

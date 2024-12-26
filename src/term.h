@@ -32,8 +32,13 @@ typedef enum editor_key {
   MOVE_WORD_FORWARD,
   MOVE_WORD_FORWARD_END,
   MOVE_WORD_BACKWARD,
+  FULL_PAGE_UP,
+  FULL_PAGE_DOWN,
   HALF_PAGE_UP,
   HALF_PAGE_DOWN,
+  ERASE_LEFT_KEY,
+  ERASE_RIGHT_KEY,
+  NEWLINE_KEY,
   EOF_KEY,
   INIT_FILE_KEY,
   EOL_KEY,
@@ -43,9 +48,7 @@ typedef enum editor_key {
   COMMAND_KEY,
   ENTER_COMMAND_KEY,
   SAVE_KEY,
-  EXIT_KEY,
-  ERASE_LEFT_KEY,
-  ERASE_RIGHT_KEY
+  EXIT_KEY
 } Key;
 
 /* Editor row structure */
@@ -96,6 +99,7 @@ int readKey(void);
 void printKey(void);
 void processKey(void);
 void editorScroll(void);
+void refreshScreen(void);
 void initEditor(void);
 void disableRawMode(void);
 void appendStatusString(char *, int);
@@ -103,6 +107,7 @@ void appendMessageString(char *, int);
 int getWindowSize(int *, int *);
 void insertChar(int);
 void deleteChar(void);
+void erowInsertRow(void);
 void saveFile(void);
 void setMessage(const char *, ...);
 
