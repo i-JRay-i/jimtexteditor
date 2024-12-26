@@ -124,17 +124,18 @@ char *writeFile(int *len_file) {
   return file;
 }
 
-char *newsavePrompt(char *prompt, int prompt_len) {
+char *newsavePrompt(void) {
   size_t max_len = 256;
   char *input = malloc(max_len);
   size_t input_len = 0;
+  char *prompt = "Save as:";
   input[0] = '\0';
 
   E.cmd.cmd_str[0] = '\0';
   E.cmd.cmd_len = 0;
 
   while (1) {
-    appendMessageString(prompt, prompt_len);
+    appendMessageString(prompt, 8);
     int ch = readKey();
     if (ch == '\r') {
       if (input_len != 0) {
@@ -156,7 +157,7 @@ char *newsavePrompt(char *prompt, int prompt_len) {
 
 void saveFile(void) {
   if (E.filename == NULL) {
-    E.filename = newsavePrompt("Save as", 7);
+    E.filename = newsavePrompt();
   }
 
   int len = 0;

@@ -128,8 +128,6 @@ void setStatusString(void) {
 void setMessageString(void) {
   if (E.emode == MODE_COMMAND) {
     E.emsg.msg_time = 0;
-    appendMessageString(":", 1);
-    appendMessageString(E.cmd.cmd_str, E.cmd.cmd_len);
   } else {
   }
 }

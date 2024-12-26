@@ -30,4 +30,4 @@ The editor code does not take more than 2000 lines. However, I decided to divide
 - syntax highlighting
 - configuration file
 - string search
-
+- undo and redo commands

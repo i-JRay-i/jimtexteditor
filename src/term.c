@@ -161,6 +161,7 @@ int mapKeyNormal(int key) {
     case 'k': return MOVE_UP;
     case 'l': return MOVE_RIGHT;
     case 'i': return INSERT_KEY;
+    case 'a': return INSERT_NEXT_KEY;
     case ':': return COMMAND_KEY;
     case 'W': return MOVE_WORD_FORWARD;
     case 'B': return MOVE_WORD_BACKWARD;
@@ -182,6 +183,11 @@ void processNormal(int key) {
       exit(0);
       break;
     case INSERT_KEY:
+      E.emode = MODE_INSERT;
+      break;
+    case INSERT_NEXT_KEY:
+      if (E.crsr_x < E.erow[E.crsr_y].row_len)
+        E.crsr_x++;
       E.emode = MODE_INSERT;
       break;
     case COMMAND_KEY:
@@ -366,6 +372,20 @@ void processCommand (int key) {
   }
 }
 
+void commandPrompt(void) {
+  while (1) {
+    int key = readKey();
+    key = mapKeyCommand(key);
+    processCommand(key);
+    if ((key == ENTER_COMMAND_KEY) || (key == NORMAL_KEY))
+      break;
+
+    appendMessageString(":", 1);
+    appendMessageString(E.cmd.cmd_str, E.cmd.cmd_len);
+    refreshScreen();
+  }
+}
+
 void processKey(void) {
   int key = readKey();
   if (E.emode == MODE_NORMAL) {
@@ -375,8 +395,7 @@ void processKey(void) {
     key = mapKeyInsert(key);
     processInsert(key);
   } else if (E.emode == MODE_COMMAND) {
-    key = mapKeyCommand(key);
-    processCommand(key);
+    commandPrompt();
   }
 }
 

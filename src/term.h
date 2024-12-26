@@ -45,6 +45,7 @@ typedef enum editor_key {
   INIT_LINE_KEY,
   NORMAL_KEY,
   INSERT_KEY,
+  INSERT_NEXT_KEY,
   COMMAND_KEY,
   ENTER_COMMAND_KEY,
   SAVE_KEY,
