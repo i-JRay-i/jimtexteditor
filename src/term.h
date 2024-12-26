@@ -61,19 +61,22 @@ typedef struct editor_row {
 } ERow;
 
 typedef struct editor_status {
-  char stat_str[512];
+  char *stat_str;
   int stat_len;
+  size_t stat_size;
 } EStat;
 
 typedef struct editor_message {
-  char msg_str[512];
+  char *msg_str;
   int msg_len;
+  size_t msg_size;
   time_t msg_time;
 } EMsg;
 
 typedef struct editor_command {
-  char cmd_str[512];
+  char *cmd_str;
   int cmd_len;
+  size_t cmd_size;
 } CMD;
 
 typedef struct editor_config { // Configuration variables for the editor
@@ -102,6 +105,8 @@ void processKey(void);
 void editorScroll(void);
 void refreshScreen(void);
 void initEditor(void);
+void freeEditor(void);
+void exitEditor(void);
 void disableRawMode(void);
 void appendStatusString(char *, int);
 void appendMessageString(char *, int);

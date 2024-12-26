@@ -10,8 +10,10 @@ void die(const char* err_msg) {
 
   perror(err_msg);
   disableRawMode();
+  freeEditor();
   exit(1);
 }
+
 
 int getCursorPosition(int *rows, int *cols) { // Fallback mechanism to read the cursor crsr_position
   char str_crsr[32];
@@ -177,10 +179,7 @@ int mapKeyNormal(int key) {
 void processNormal(int key) {
    switch (key) {
     case EXIT_KEY:
-      write(STDOUT_FILENO, "\x1b[2J", 4);
-      write(STDOUT_FILENO, "\x1b[H", 3);
-      disableRawMode();
-      exit(0);
+      exitEditor();
       break;
     case INSERT_KEY:
       E.emode = MODE_INSERT;
@@ -242,10 +241,7 @@ int mapKeyInsert (int key) {
 void processInsert (int key) {
    switch (key) {
     case EXIT_KEY:
-      write(STDOUT_FILENO, "\x1b[2J", 4);
-      write(STDOUT_FILENO, "\x1b[H", 3);
-      disableRawMode();
-      exit(0);
+      exitEditor();
       break;
     case NORMAL_KEY:
       E.emode = MODE_NORMAL;
@@ -304,23 +300,14 @@ void enterCommand(void) {
       setMessage("Warning: File has unsaved changes.");
       return;
     }
-    write(STDOUT_FILENO, "\x1b[2J", 4);
-    write(STDOUT_FILENO, "\x1b[H", 3);
-    disableRawMode();
-    exit(0);
+    exitEditor();
   } else if (!strcmp(E.cmd.cmd_str, "w")) {
     saveFile();
   } else if (!strcmp(E.cmd.cmd_str, "wq")) {
     saveFile();
-    write(STDOUT_FILENO, "\x1b[2J", 4);
-    write(STDOUT_FILENO, "\x1b[H", 3);
-    disableRawMode();
-    exit(0);
+    exitEditor();
   } else if (!strcmp(E.cmd.cmd_str, "q!")) {
-    write(STDOUT_FILENO, "\x1b[2J", 4);
-    write(STDOUT_FILENO, "\x1b[H", 3);
-    disableRawMode();
-    exit(0);
+    exitEditor();
   } else if (!strcmp(E.cmd.cmd_str, "help")) {
     setMessage(HELP_MSG);
   } else if (E.cmd.cmd_str[0] == '!') {
@@ -400,12 +387,22 @@ void processKey(void) {
 }
 
 void appendStatusString(char *str, int str_len) {
+  if (E.estat.stat_len + str_len > E.estat.stat_size) {
+    E.estat.stat_size += 512;
+    E.estat.stat_str = realloc(E.estat.stat_str, E.estat.stat_size);
+  }
+
   memcpy(&E.estat.stat_str[E.estat.stat_len], str, str_len);
   E.estat.stat_str[E.estat.stat_len+str_len] = '\0';
   E.estat.stat_len = strlen(E.estat.stat_str);
 }
 
 void appendMessageString(char *str, int str_len) {
+  if (E.emsg.msg_len + str_len > E.emsg.msg_size) {
+    E.emsg.msg_size += 512;
+    E.emsg.msg_str = realloc(E.emsg.msg_str, E.emsg.msg_size);
+  }
+
   memcpy(&E.emsg.msg_str[E.emsg.msg_len], str, str_len);
   E.emsg.msg_str[E.emsg.msg_len+str_len] = '\0';
   E.emsg.msg_len = strlen(E.emsg.msg_str);
@@ -459,15 +456,37 @@ void initEditor(void) {
   E.erow = NULL;
   E.num_row = 0;
 
+  E.estat.stat_size = 512;
+  E.estat.stat_str = malloc(E.estat.stat_size);
   E.estat.stat_str[0] = '\0';
   E.estat.stat_len = 0;
 
+  E.emsg.msg_size = 512;
+  E.emsg.msg_str = malloc(E.emsg.msg_size);
   E.emsg.msg_str[0] = '\0';
   E.emsg.msg_len = 0;
   E.emsg.msg_time = 0;
 
+  E.cmd.cmd_size = 512;
+  E.cmd.cmd_str = malloc(E.cmd.cmd_size);
   E.cmd.cmd_str[0] = '\0';
   E.cmd.cmd_len = 0;
 
   E.filename = NULL;
+}
+
+void freeEditor(void) {
+  free(E.estat.stat_str);
+  free(E.emsg.msg_str);
+  free(E.cmd.cmd_str);
+}
+
+
+void exitEditor(void) {
+  write(STDOUT_FILENO, "\x1b[2J", 4);
+  write(STDOUT_FILENO, "\x1b[H", 3);
+
+  disableRawMode();
+  freeEditor();
+  exit(0);
 }
