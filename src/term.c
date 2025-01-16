@@ -14,7 +14,6 @@ void die(const char* err_msg) {
   exit(1);
 }
 
-
 int getCursorPosition(int *rows, int *cols) { // Fallback mechanism to read the cursor crsr_position
   char str_crsr[32];
   unsigned int i_str = 0;
@@ -183,11 +182,15 @@ void processNormal(int key) {
       break;
     case INSERT_KEY:
       E.emode = MODE_INSERT;
+      write(STDOUT_FILENO, "\x1b[5 q", 5);
+      fflush(stdout);
       break;
     case INSERT_NEXT_KEY:
-      if (E.crsr_x < E.erow[E.crsr_y].row_len)
+      if (E.erow && E.crsr_x < E.erow[E.crsr_y].row_len)
         E.crsr_x++;
       E.emode = MODE_INSERT;
+      write(STDOUT_FILENO, "\x1b[5 q", 5);
+      fflush(stdout);
       break;
     case COMMAND_KEY:
       E.emode = MODE_COMMAND;
@@ -245,6 +248,7 @@ void processInsert (int key) {
       break;
     case NORMAL_KEY:
       E.emode = MODE_NORMAL;
+      write(STDOUT_FILENO, "\x1b[2 q", 5);
       break;
     case NEWLINE_KEY:
       erowInsertRow();
@@ -386,7 +390,7 @@ void processKey(void) {
   }
 }
 
-void appendStatusString(char *str, int str_len) {
+void appendStatusString(char *str, unsigned int str_len) {
   if (E.estat.stat_len + str_len > E.estat.stat_size) {
     E.estat.stat_size += 512;
     E.estat.stat_str = realloc(E.estat.stat_str, E.estat.stat_size);
@@ -397,7 +401,7 @@ void appendStatusString(char *str, int str_len) {
   E.estat.stat_len = strlen(E.estat.stat_str);
 }
 
-void appendMessageString(char *str, int str_len) {
+void appendMessageString(char *str, unsigned int str_len) {
   if (E.emsg.msg_len + str_len > E.emsg.msg_size) {
     E.emsg.msg_size += 512;
     E.emsg.msg_str = realloc(E.emsg.msg_str, E.emsg.msg_size);

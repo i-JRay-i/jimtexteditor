@@ -22,6 +22,7 @@ The editor code does not take more than 2000 lines. However, I decided to divide
 - Save and exit commands
 - Processing shell commands in COMMAND mode
 - Basic motions in NORMAL mode (hjkl, word forward and backward with W and B, half page down and up with CTRL+D and CTRL+U)
+- Arrow keys for moving in INSERT mode.
 - Status and message bars
 
 ## Features planned

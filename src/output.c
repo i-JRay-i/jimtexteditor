@@ -144,7 +144,7 @@ void resetMessageString(void) {
   }
 }
 
-void setCursor(void) {
+void setCursorPosition(void) {
   if (E.emode == MODE_COMMAND) {
     E.crsr_cmd_x = E.emsg.msg_len + 2;
     E.crsr_cmd_y = E.term_height-1;
@@ -165,10 +165,9 @@ void setCursor(void) {
     E.crsr_rndr_x = rx - E.col_off + 1;
     E.crsr_rndr_y = E.crsr_y - E.row_off + 1;
 
-    int row_len = erow ? erow->row_len : 0;
+    int row_len = erow ? erow->rndr_len : 0;
     if (E.crsr_rndr_x > row_len)
-      E.crsr_rndr_x = row_len;
-
+      E.crsr_rndr_x = row_len + 1;
   }
 }
 
@@ -195,8 +194,8 @@ void refreshScreen(void) {
 
   bufAppend(&ob, "\x1b[?25h", 6);
 
-  // Setting the cursor position on the editor
-  setCursor();
+  // Setting the cursor style and position on the editor
+  setCursorPosition();
   char crsr_pos[32]; 
   snprintf(crsr_pos, 32, "\x1b[%d;%dH", E.crsr_rndr_y, E.crsr_rndr_x);
   bufAppend(&ob, crsr_pos, strlen(crsr_pos));
