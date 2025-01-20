@@ -48,6 +48,7 @@ typedef enum editor_key {
   INSERT_NEXT_KEY,
   COMMAND_KEY,
   ENTER_COMMAND_KEY,
+  SEARCH_KEY,
   SAVE_KEY,
   EXIT_KEY
 } Key;
@@ -116,5 +117,6 @@ void deleteChar(void);
 void erowInsertRow(void);
 void saveFile(void);
 void setMessage(const char *, ...);
+void searchPrompt(void);
 
 #endif

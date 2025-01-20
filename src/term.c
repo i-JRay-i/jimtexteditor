@@ -171,6 +171,7 @@ int mapKeyNormal(int key) {
     case 'G': return EOF_KEY;
     case '$': return EOL_KEY;
     case '0': return INIT_LINE_KEY;
+    case '/': return SEARCH_KEY;
     default: return key;
   }
 }
@@ -194,6 +195,10 @@ void processNormal(int key) {
       break;
     case COMMAND_KEY:
       E.emode = MODE_COMMAND;
+      break;
+    case SEARCH_KEY:
+      E.emode = MODE_COMMAND;
+      searchPrompt();
       break;
     case HALF_PAGE_UP:
     case HALF_PAGE_DOWN:
@@ -363,6 +368,53 @@ void processCommand (int key) {
   }
 }
 
+void findQuery (char *srch_str) {
+  for (int row_idx = 0; row_idx < E.num_row; row_idx++) {
+    ERow *erow = &E.erow[row_idx];
+    char *str_match = strstr(erow->rndr_str, srch_str);
+
+    if (str_match) {
+      E.crsr_y = row_idx;
+      E.crsr_x = str_match - erow->rndr_str;
+      E.row_off = E.num_row;
+      break;
+    }
+  }
+}
+
+void processSearch (int key, int *srch_len, char *srch_str) {
+  switch (key) {
+    case '\0':
+      break;
+    case NORMAL_KEY:
+      clearCommand();
+      E.emode = MODE_NORMAL;
+      break;
+    case ENTER_COMMAND_KEY:
+      findQuery(srch_str);
+      E.emode = MODE_NORMAL;
+      break;
+    case ERASE_LEFT_KEY:
+      if (*srch_len > 0) {
+        E.crsr_cmd_x--;
+        *srch_len -= 1;
+        srch_str[*srch_len] = '\0';
+      }
+      break;
+    case MOVE_UP:
+    case MOVE_DOWN:
+    case MOVE_LEFT:
+    case MOVE_RIGHT:
+      moveCursorCommand(key);
+      break;
+    default:
+      srch_str[*srch_len] = key;
+      *srch_len += 1;
+      srch_str[*srch_len] = '\0';
+      break;
+  }
+}
+
 void commandPrompt(void) {
   while (1) {
     int key = readKey();
@@ -485,7 +537,6 @@ void freeEditor(void) {
   free(E.cmd.cmd_str);
 }
 
-
 void exitEditor(void) {
   write(STDOUT_FILENO, "\x1b[2J", 4);
   write(STDOUT_FILENO, "\x1b[H", 3);
@@ -494,3 +545,31 @@ void exitEditor(void) {
   freeEditor();
   exit(0);
 }
+
+void searchPrompt(void) {
+  int search_len = 0;
+  int search_size = 128;
+  char *search_str = malloc(search_size);
+
+  while (1) {
+    if (search_len > search_size) {
+      search_size += 128;
+      search_str = realloc(search_str, search_size);
+    }
+
+    int key = readKey();
+    key = mapKeyCommand(key);
+    processSearch(key, &search_len, search_str);
+
+    if ((key == ENTER_COMMAND_KEY) || (key == NORMAL_KEY)) {
+      break;
+    }
+
+    appendMessageString("/", 1);
+    appendMessageString(search_str, search_len);
+    refreshScreen();
+  }
+
+  free(search_str);
+}
+

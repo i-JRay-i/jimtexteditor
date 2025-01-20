@@ -92,6 +92,7 @@ void drawStatusBar(OBuf *ob) {        // Drawing the status bar
       bufAppend(ob, " ", 1);
     }
   }
+
   bufAppend(ob, stat_str_right, right_len);
   bufAppend(ob, " \x1b[m", 4);
   bufAppend(ob, "\r\n", 2);
