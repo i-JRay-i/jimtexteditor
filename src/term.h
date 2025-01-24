@@ -11,7 +11,7 @@
 #include <time.h>
 
 #define HELP_MSG "HELP: :q = quit | :w = save | :q! = quit wout save | :help = print this message"
-#define JIM_VERSION "0.0.1"
+#define JIM_VERSION "0.0.2"
 #define TAB_SIZE 8
 #define MSG_TIME 3
 #define PAGE_SIZE 64
@@ -49,6 +49,8 @@ typedef enum editor_key {
   COMMAND_KEY,
   ENTER_COMMAND_KEY,
   SEARCH_KEY,
+  SEARCH_FORWARD,
+  SEARCH_BACKWARD,
   SAVE_KEY,
   EXIT_KEY
 } Key;
@@ -62,23 +64,33 @@ typedef struct editor_row {
 } ERow;
 
 typedef struct editor_status {
-  char *stat_str;
-  int stat_len;
-  size_t stat_size;
+  char *stat_str; // status string
+  size_t stat_len; // status string length
+  size_t stat_size; // status string array size
 } EStat;
 
 typedef struct editor_message {
-  char *msg_str;
-  int msg_len;
-  size_t msg_size;
-  time_t msg_time;
+  char *msg_str; // message string
+  size_t msg_len; // message string length
+  size_t msg_size; // message string array size
+  time_t msg_time; // message string appear time
 } EMsg;
 
 typedef struct editor_command {
-  char *cmd_str;
-  int cmd_len;
-  size_t cmd_size;
+  char *cmd_str; // command string
+  size_t cmd_len; // command string length
+  size_t cmd_size; // command string array size
 } CMD;
+
+typedef struct editor_search_string {
+  char *srch_str;
+  size_t srch_len; // Search string length
+  size_t srch_size; // Search string array size
+  size_t srch_match_num; // Search match counter
+  size_t srch_match_idx; // Search match index
+  int *srch_match_x;
+  int *srch_match_y;
+} ESrch;
 
 typedef struct editor_config { // Configuration variables for the editor
   int term_width, term_height;
@@ -92,6 +104,7 @@ typedef struct editor_config { // Configuration variables for the editor
   EMode emode; // Editor mode
   EStat estat; // Editor status bar object
   EMsg emsg; // Editor message bar object
+  ESrch srch; // Search string object
   CMD cmd;
   char *filename;
   struct termios term_conf_editor;
@@ -117,6 +130,8 @@ void deleteChar(void);
 void erowInsertRow(void);
 void saveFile(void);
 void setMessage(const char *, ...);
+void findQuery(void);
+void searchQuery(void);
 void searchPrompt(void);
 
 #endif

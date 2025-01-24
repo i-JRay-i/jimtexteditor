@@ -85,7 +85,7 @@ void drawStatusBar(OBuf *ob) {        // Drawing the status bar
 
   bufAppend(ob, "\x1b[7m", 4);
   for (int stat_crsr = 0; stat_crsr < E.term_width - right_len - 1; stat_crsr++) {
-    if (stat_crsr > 1 && stat_crsr < E.estat.stat_len + 2) {
+    if (stat_crsr > 1 && (size_t)stat_crsr < E.estat.stat_len + 2) {
       bufAppend(ob, &E.estat.stat_str[stat_str_crsr], 1);
       stat_str_crsr++;
     } else {
@@ -101,7 +101,7 @@ void drawStatusBar(OBuf *ob) {        // Drawing the status bar
 void drawMessageBar(OBuf *ob) {
   int msg_str_crsr = 0;
 
-  for (int msg_crsr = 0; msg_crsr < E.term_width; msg_crsr++) {
+  for (unsigned int msg_crsr = 0; (int)msg_crsr < E.term_width; msg_crsr++) {
     if (msg_crsr > 1 && msg_crsr < E.emsg.msg_len + 2) {
       bufAppend(ob, &E.emsg.msg_str[msg_str_crsr], 1);
       msg_str_crsr++;

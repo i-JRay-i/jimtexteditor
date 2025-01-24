@@ -172,6 +172,8 @@ int mapKeyNormal(int key) {
     case '$': return EOL_KEY;
     case '0': return INIT_LINE_KEY;
     case '/': return SEARCH_KEY;
+    case 'n': return SEARCH_FORWARD;
+    case 'N': return SEARCH_BACKWARD;
     default: return key;
   }
 }
@@ -199,6 +201,20 @@ void processNormal(int key) {
     case SEARCH_KEY:
       E.emode = MODE_COMMAND;
       searchPrompt();
+      break;
+    case SEARCH_FORWARD:
+      if (E.srch.srch_match_idx < E.srch.srch_match_num)
+        E.srch.srch_match_idx++;
+      else
+        E.srch.srch_match_idx = 0;
+      searchQuery();
+      break;
+    case SEARCH_BACKWARD:
+      if (E.srch.srch_match_idx > 0)
+        E.srch.srch_match_idx--;
+      else
+        E.srch.srch_match_idx = E.srch.srch_match_num-1;
+      searchQuery();
       break;
     case HALF_PAGE_UP:
     case HALF_PAGE_DOWN:
@@ -327,7 +343,7 @@ void enterCommand(void) {
 }
 
 void clearCommand (void) {
-  for (int cmd_idx = 0; cmd_idx < E.cmd.cmd_len; cmd_idx++)
+  for (size_t cmd_idx = 0; cmd_idx < E.cmd.cmd_len; cmd_idx++)
     E.cmd.cmd_str[cmd_idx] = 0;
   E.cmd.cmd_len = 0;
   E.cmd.cmd_str[0] = '\0';
@@ -368,21 +384,45 @@ void processCommand (int key) {
   }
 }
 
-void findQuery (char *srch_str) {
-  for (int row_idx = 0; row_idx < E.num_row; row_idx++) {
-    ERow *erow = &E.erow[row_idx];
-    char *str_match = strstr(erow->rndr_str, srch_str);
+void findQuery (void) {
+  int row_idx = 0;
+  int col_idx = 0;
+
+  E.srch.srch_match_num = 0;
+  E.srch.srch_match_idx = 0;
+
+  while (row_idx < E.num_row) {
+    ERow *curr_row = &E.erow[row_idx];
+    char *str_match = strstr(&(curr_row->row_str[col_idx]), E.srch.srch_str);
 
     if (str_match) {
-      E.crsr_y = row_idx;
-      E.crsr_x = str_match - erow->rndr_str;
-      E.row_off = E.num_row;
-      break;
+      col_idx = (int)(str_match - curr_row->row_str);
+
+      E.srch.srch_match_x[E.srch.srch_match_num] = col_idx;  
+      E.srch.srch_match_y[E.srch.srch_match_num] = row_idx;
+
+      E.srch.srch_match_num++;
+      if (E.srch.srch_match_y[E.srch.srch_match_num-1] <= E.crsr_y)
+        E.srch.srch_match_idx = E.srch.srch_match_num;
+
+      E.srch.srch_match_x = realloc(E.srch.srch_match_x, sizeof(int) * (E.srch.srch_match_num));
+      E.srch.srch_match_y = realloc(E.srch.srch_match_y, sizeof(int) * (E.srch.srch_match_num));
+
+      col_idx++;
+      continue;
     }
+
+    row_idx++;
+    col_idx = 0;
   }
 }
 
-void processSearch (int key, int *srch_len, char *srch_str) {
+void searchQuery(void) {
+  E.crsr_x = E.srch.srch_match_x[E.srch.srch_match_idx];
+  E.crsr_y = E.srch.srch_match_y[E.srch.srch_match_idx];
+}
+
+void processSearch (int key) {
   switch (key) {
     case '\0':
       break;
@@ -391,27 +431,55 @@ void processSearch (int key, int *srch_len, char *srch_str) {
       E.emode = MODE_NORMAL;
       break;
     case ENTER_COMMAND_KEY:
-      findQuery(srch_str);
+      findQuery();
+      searchQuery();
       E.emode = MODE_NORMAL;
       break;
     case ERASE_LEFT_KEY:
-      if (*srch_len > 0) {
+      if (E.srch.srch_len > 0) {
         E.crsr_cmd_x--;
-        *srch_len -= 1;
-        srch_str[*srch_len] = '\0';
+        E.srch.srch_len -= 1;
+        E.srch.srch_str[E.srch.srch_len] = '\0';
       }
       break;
     case MOVE_UP:
     case MOVE_DOWN:
+      break;
     case MOVE_LEFT:
     case MOVE_RIGHT:
       moveCursorCommand(key);
       break;
     default:
-      srch_str[*srch_len] = key;
-      *srch_len += 1;
-      srch_str[*srch_len] = '\0';
+      E.srch.srch_str[E.srch.srch_len] = key;
+      E.srch.srch_len += 1;
+      E.srch.srch_str[E.srch.srch_len] = '\0';
       break;
+  }
+}
+
+void searchPrompt(void) {
+  E.srch.srch_size = 512;
+  E.srch.srch_str = realloc(E.srch.srch_str, E.srch.srch_size);
+  E.srch.srch_str[0] = '\0';
+  E.srch.srch_len = 0;
+
+  while (1) {
+    if (E.srch.srch_len > E.srch.srch_size) {
+      E.srch.srch_size += 512;
+      E.srch.srch_str = realloc(E.srch.srch_str, E.srch.srch_size);
+    }
+
+    int key = readKey();
+    key = mapKeyCommand(key);
+    processSearch(key);
+
+    if ((key == ENTER_COMMAND_KEY) || (key == NORMAL_KEY)) {
+      break;
+    }
+
+    appendMessageString("/", 1);
+    appendMessageString(E.srch.srch_str, E.srch.srch_len);
+    refreshScreen();
   }
 }
 
@@ -528,6 +596,15 @@ void initEditor(void) {
   E.cmd.cmd_str[0] = '\0';
   E.cmd.cmd_len = 0;
 
+  E.srch.srch_size = 512;
+  E.srch.srch_str = malloc(E.srch.srch_size);
+  E.srch.srch_str[0] = '\0';
+  E.srch.srch_len = 0;
+  E.srch.srch_match_num = 0;
+  E.srch.srch_match_idx = 0;
+  E.srch.srch_match_x = malloc(sizeof(int));
+  E.srch.srch_match_y = malloc(sizeof(int));
+
   E.filename = NULL;
 }
 
@@ -535,6 +612,9 @@ void freeEditor(void) {
   free(E.estat.stat_str);
   free(E.emsg.msg_str);
   free(E.cmd.cmd_str);
+  free(E.srch.srch_str);
+  free(E.srch.srch_match_x);
+  free(E.srch.srch_match_y);
 }
 
 void exitEditor(void) {
@@ -546,30 +626,4 @@ void exitEditor(void) {
   exit(0);
 }
 
-void searchPrompt(void) {
-  int search_len = 0;
-  int search_size = 128;
-  char *search_str = malloc(search_size);
-
-  while (1) {
-    if (search_len > search_size) {
-      search_size += 128;
-      search_str = realloc(search_str, search_size);
-    }
-
-    int key = readKey();
-    key = mapKeyCommand(key);
-    processSearch(key, &search_len, search_str);
-
-    if ((key == ENTER_COMMAND_KEY) || (key == NORMAL_KEY)) {
-      break;
-    }
-
-    appendMessageString("/", 1);
-    appendMessageString(search_str, search_len);
-    refreshScreen();
-  }
-
-  free(search_str);
-}
 
