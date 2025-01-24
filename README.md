@@ -24,7 +24,7 @@ The editor code does not take more than 2000 lines. However, I decided to divide
 - Basic motions in NORMAL mode (hjkl, word forward and backward with W and B, half page down and up with CTRL+D and CTRL+U)
 - Arrow keys for moving in INSERT mode.
 - Status and message bars
-- string search
+- string search functionality (Enter search prompt with /, scroll through the document with n and N keys)
 
 ## Features planned
 
