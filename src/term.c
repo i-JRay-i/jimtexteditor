@@ -2,7 +2,7 @@
 
 #define CTRL_KEY(key) (key & 0x1f)
 
-struct termios term_conf_def; 
+struct termios term_conf_def;
 
 void die(const char* err_msg) {
   write(STDOUT_FILENO, "\x1b[2J", 4);
@@ -51,6 +51,7 @@ int getWindowSize(int *rows, int *cols) {
 
 void moveCursor(int key) {
   ERow *erow = (E.crsr_y >= E.num_row) ? NULL : &E.erow[E.crsr_y];
+  //int curr_char = erow->row_str[E.crsr_x];
   switch (key) {
     case MOVE_LEFT:
       if (E.crsr_x > 0)
@@ -68,37 +69,55 @@ void moveCursor(int key) {
       if (E.crsr_y < E.num_row)
         E.crsr_y++;
       break;
-    case MOVE_WORD_FORWARD: {
-        while (erow && erow->row_str[E.crsr_x] != ' ') {
-          E.crsr_x++;
-          if (E.crsr_x >= erow->row_len) {
-            E.crsr_x = 0;
-            E.crsr_y++;
-            erow = (E.crsr_y >= E.num_row) ? NULL : &E.erow[E.crsr_y];
-            break;
-          }
+    case MOVE_WORD_FORWARD:
+      while (erow && erow->row_str[E.crsr_x] != ' ') {
+        if (E.crsr_x >= erow->row_len) {
+          E.crsr_x = 0;
+          E.crsr_y++;
+          erow = (E.crsr_y >= E.num_row) ? NULL : &E.erow[E.crsr_y];
+          break;
         }
-        while (erow && erow->row_str[E.crsr_x] == ' ')
-          E.crsr_x++;
+        E.crsr_x++;
       }
+      while (erow && erow->row_str[E.crsr_x] == ' ')
+        E.crsr_x++;
       break;
-    case MOVE_WORD_BACKWARD: {
-        if (E.crsr_x == 0 && E.crsr_y > 0) {
+    case MOVE_WORD_FORWARD_END:
+      E.crsr_x++;
+      if (E.crsr_y < E.num_row && E.crsr_x >= erow->row_len) {
+        E.crsr_x = 0;
+        E.crsr_y++;
+        erow = (E.crsr_y >= E.num_row) ? NULL : &E.erow[E.crsr_y];
+        break;
+      }
+      while (erow && erow->row_str[E.crsr_x] == ' ')
+        E.crsr_x++;
+      while (erow && (erow->row_str[E.crsr_x] != ' ') && (erow->row_str[E.crsr_x] != '\0'))
+        E.crsr_x++;
+      E.crsr_x--;
+      break;
+    case MOVE_WORD_BACKWARD:
+      if (E.crsr_x == 0 && E.crsr_y > 0) {
+        E.crsr_y--;
+        erow = (E.crsr_y >= E.num_row) ? NULL : &E.erow[E.crsr_y];
+        E.crsr_x = E.erow[E.crsr_y].row_len;
+      }
+      while (E.crsr_x != 0 && erow && erow->row_str[E.crsr_x-1] == ' ') {
+        E.crsr_x--;
+        if (E.crsr_x < 0 && E.crsr_y > 0) {
           E.crsr_y--;
           erow = (E.crsr_y >= E.num_row) ? NULL : &E.erow[E.crsr_y];
           E.crsr_x = E.erow[E.crsr_y].row_len;
         }
-        while (E.crsr_x != 0 && erow && erow->row_str[E.crsr_x-1] == ' ') {
-          E.crsr_x--;
-          if (E.crsr_x == 0 && E.crsr_y > 0) {
-            E.crsr_y--;
-            erow = (E.crsr_y >= E.num_row) ? NULL : &E.erow[E.crsr_y];
-            E.crsr_x = E.erow[E.crsr_y].row_len;
-          }
-        }
-        while (E.crsr_x != 0 && erow && erow->row_str[E.crsr_x-1] != ' ') 
-          E.crsr_x--;
       }
+      while (E.crsr_x != 0 && erow && erow->row_str[E.crsr_x-1] != ' ') 
+        E.crsr_x--;
+      break;
+    case MOVE_TOKEN_FORWARD:
+      break;
+    case MOVE_TOKEN_FORWARD_END:
+      break;
+    case MOVE_TOKEN_BACKWARD:
       break;
     case HALF_PAGE_UP:
       E.crsr_y -= HALF_PAGE_SIZE;
@@ -163,9 +182,15 @@ int mapKeyNormal(int key) {
     case 'l': return MOVE_RIGHT;
     case 'i': return INSERT_KEY;
     case 'a': return INSERT_NEXT_KEY;
+    case 'o': return INSERT_LINE_NEXT;
+    case 'O': return INSERT_LINE_PREV;
     case ':': return COMMAND_KEY;
     case 'W': return MOVE_WORD_FORWARD;
+    case 'E': return MOVE_WORD_FORWARD_END;
     case 'B': return MOVE_WORD_BACKWARD;
+    case 'w': return MOVE_TOKEN_FORWARD;
+    case 'e': return MOVE_TOKEN_FORWARD_END;
+    case 'b': return MOVE_TOKEN_BACKWARD;
     case CTRL_KEY('u'): return HALF_PAGE_UP;
     case CTRL_KEY('d'): return HALF_PAGE_DOWN;
     case 'G': return EOF_KEY;
@@ -195,6 +220,10 @@ void processNormal(int key) {
       write(STDOUT_FILENO, "\x1b[5 q", 5);
       fflush(stdout);
       break;
+    case INSERT_LINE_PREV:
+      break;
+    case INSERT_LINE_NEXT:
+      break;
     case COMMAND_KEY:
       E.emode = MODE_COMMAND;
       break;
@@ -203,16 +232,14 @@ void processNormal(int key) {
       searchPrompt();
       break;
     case SEARCH_FORWARD:
-      if (E.srch.srch_match_idx < E.srch.srch_match_num)
-        E.srch.srch_match_idx++;
-      else
+      E.srch.srch_match_idx++;
+      if (E.srch.srch_match_idx >= E.srch.srch_match_num)
         E.srch.srch_match_idx = 0;
       searchQuery();
       break;
     case SEARCH_BACKWARD:
-      if (E.srch.srch_match_idx > 0)
-        E.srch.srch_match_idx--;
-      else
+      E.srch.srch_match_idx--;
+      if (E.srch.srch_match_idx >= E.srch.srch_match_num)
         E.srch.srch_match_idx = E.srch.srch_match_num-1;
       searchQuery();
       break;
@@ -223,7 +250,11 @@ void processNormal(int key) {
     case MOVE_UP:
     case MOVE_RIGHT:
     case MOVE_WORD_FORWARD:
+    case MOVE_WORD_FORWARD_END:
     case MOVE_WORD_BACKWARD:
+    case MOVE_TOKEN_FORWARD:
+    case MOVE_TOKEN_FORWARD_END:
+    case MOVE_TOKEN_BACKWARD:
     case EOF_KEY:
       moveCursor(key);
       break;
@@ -397,16 +428,15 @@ void findQuery (void) {
 
     if (str_match) {
       col_idx = (int)(str_match - curr_row->row_str);
-
-      E.srch.srch_match_x[E.srch.srch_match_num] = col_idx;  
-      E.srch.srch_match_y[E.srch.srch_match_num] = row_idx;
-
       E.srch.srch_match_num++;
-      if (E.srch.srch_match_y[E.srch.srch_match_num-1] <= E.crsr_y)
-        E.srch.srch_match_idx = E.srch.srch_match_num;
 
       E.srch.srch_match_x = realloc(E.srch.srch_match_x, sizeof(int) * (E.srch.srch_match_num));
       E.srch.srch_match_y = realloc(E.srch.srch_match_y, sizeof(int) * (E.srch.srch_match_num));
+      E.srch.srch_match_x[E.srch.srch_match_num-1] = col_idx;  
+      E.srch.srch_match_y[E.srch.srch_match_num-1] = row_idx;
+
+      if (E.srch.srch_match_y[E.srch.srch_match_num-1] <= E.crsr_y)
+        E.srch.srch_match_idx = E.srch.srch_match_num;
 
       col_idx++;
       continue;
@@ -602,8 +632,8 @@ void initEditor(void) {
   E.srch.srch_len = 0;
   E.srch.srch_match_num = 0;
   E.srch.srch_match_idx = 0;
-  E.srch.srch_match_x = malloc(sizeof(int));
-  E.srch.srch_match_y = malloc(sizeof(int));
+  E.srch.srch_match_x = NULL;
+  E.srch.srch_match_y = NULL;
 
   E.filename = NULL;
 }
@@ -625,5 +655,4 @@ void exitEditor(void) {
   freeEditor();
   exit(0);
 }
-
 
