@@ -17,12 +17,13 @@ The editor code does not take more than 2000 lines. However, I decided to divide
 
 ## Features
 
-- Viewing and editing any text file
+- Viewing and editing any file
 - Three modes: NORMAL, INSERT, COMMAND
+- Entering the COMMAND mode with : 
 - Save and exit commands
 - Processing shell commands in COMMAND mode
-- Basic motions in NORMAL mode (hjkl, word forward and backward with W and B, half page down and up with CTRL+D and CTRL+U)
-- Arrow keys for moving in INSERT mode.
+- Basic motions in NORMAL mode (moving inside the editor with {hjkl}, word forward and backward with {WBE}, half page down and up with CTRL+D and CTRL+U)
+- Arrow keys to move inside the editor in INSERT mode
 - Status and message bars
 - string search functionality (Enter search prompt with /, scroll through the document with n and N keys)
 
