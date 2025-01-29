@@ -66,6 +66,7 @@ typedef struct editor_row {
   int row_len; // Row string length
   char *rndr_str; // Rendered string
   int rndr_len; // Rendered string length
+  char *rndr_cls; // Rendered string class for syntax highlight
 } ERow;
 
 typedef struct editor_status {

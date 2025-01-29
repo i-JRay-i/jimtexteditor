@@ -13,6 +13,7 @@ void erowRender(ERow *erow) {
 
   free(erow->rndr_str);
   erow->rndr_str = malloc(erow->row_len + num_tabs*(TAB_SIZE - 1) + 1);
+  erow->rndr_cls = malloc(erow->row_len + num_tabs*(TAB_SIZE - 1) + 1);
 
   int rndr_idx = 0;
   for (int row_idx=0; row_idx<erow->row_len; row_idx++) {
@@ -23,6 +24,7 @@ void erowRender(ERow *erow) {
     } else {
       erow->rndr_str[rndr_idx++] = erow->row_str[row_idx];
     }
+    erow->rndr_cls = 0;
   }
 
   erow->rndr_str[rndr_idx] = '\0';
@@ -42,6 +44,7 @@ void erowAppend(int cur_row, char *str, size_t len) {
 
   E.erow[cur_row].rndr_len = 0;
   E.erow[cur_row].rndr_str = NULL;
+  E.erow[cur_row].rndr_cls = NULL;
   erowRender(&E.erow[cur_row]);
 
   E.num_row++;

@@ -51,7 +51,6 @@ int getWindowSize(int *rows, int *cols) {
 
 void moveCursor(int key) {
   ERow *erow = (E.crsr_y >= E.num_row) ? NULL : &E.erow[E.crsr_y];
-  //int curr_char = erow->row_str[E.crsr_x];
   switch (key) {
     case MOVE_LEFT:
       if (E.crsr_x > 0)
@@ -70,48 +69,82 @@ void moveCursor(int key) {
         E.crsr_y++;
       break;
     case MOVE_WORD_FORWARD:
-      while (erow && erow->row_str[E.crsr_x] != ' ') {
+      while(erow) {
+        if (erow->row_str[E.crsr_x] != ' ') {
+          E.crsr_x++;
+        } else {
+          E.crsr_x++;
+          if (erow->row_str[E.crsr_x] != ' ')
+            break;
+        }
         if (E.crsr_x >= erow->row_len) {
           E.crsr_x = 0;
           E.crsr_y++;
           erow = (E.crsr_y >= E.num_row) ? NULL : &E.erow[E.crsr_y];
-          break;
+          if (!erow || erow->row_str[0] != ' ')
+            break;
+          continue;
         }
-        E.crsr_x++;
       }
-      while (erow && erow->row_str[E.crsr_x] == ' ')
-        E.crsr_x++;
       break;
     case MOVE_WORD_FORWARD_END:
+      if (!erow)
+        break;
       E.crsr_x++;
-      if (E.crsr_y < E.num_row && E.crsr_x >= erow->row_len) {
+      if (erow->row_str[E.crsr_x] == '\0') {
         E.crsr_x = 0;
         E.crsr_y++;
         erow = (E.crsr_y >= E.num_row) ? NULL : &E.erow[E.crsr_y];
-        break;
       }
-      while (erow && erow->row_str[E.crsr_x] == ' ')
-        E.crsr_x++;
-      while (erow && (erow->row_str[E.crsr_x] != ' ') && (erow->row_str[E.crsr_x] != '\0'))
-        E.crsr_x++;
-      E.crsr_x--;
-      break;
-    case MOVE_WORD_BACKWARD:
-      if (E.crsr_x == 0 && E.crsr_y > 0) {
-        E.crsr_y--;
-        erow = (E.crsr_y >= E.num_row) ? NULL : &E.erow[E.crsr_y];
-        E.crsr_x = E.erow[E.crsr_y].row_len;
-      }
-      while (E.crsr_x != 0 && erow && erow->row_str[E.crsr_x-1] == ' ') {
-        E.crsr_x--;
-        if (E.crsr_x < 0 && E.crsr_y > 0) {
-          E.crsr_y--;
+      while (erow) {
+        if (erow->row_str[E.crsr_x] == ' ') {
+          E.crsr_x++;
+          continue;
+        } else {
+          E.crsr_x++;
+        }
+        if (erow->row_str[E.crsr_x] == ' ' || erow->row_str[E.crsr_x] == '\0') {
+          E.crsr_x--;
+          break;
+        }
+        if (E.crsr_x >= erow->row_len) {
+          E.crsr_x = 0;
+          E.crsr_y++;
           erow = (E.crsr_y >= E.num_row) ? NULL : &E.erow[E.crsr_y];
-          E.crsr_x = E.erow[E.crsr_y].row_len;
         }
       }
-      while (E.crsr_x != 0 && erow && erow->row_str[E.crsr_x-1] != ' ') 
-        E.crsr_x--;
+      break;
+    case MOVE_WORD_BACKWARD:
+      if (!erow) {
+        E.crsr_y--;
+        erow = (E.crsr_y >= E.num_row) ? NULL : &E.erow[E.crsr_y];
+        E.crsr_x = E.erow[E.crsr_y].row_len - 1;
+        break;
+      }
+      E.crsr_x--;
+      while (erow) {
+        if (E.crsr_x < 0) {
+          if (E.crsr_y == 0) {
+            E.crsr_x = 0;
+            break;
+          }
+          E.crsr_y--;
+          erow = (E.crsr_y >= E.num_row) ? NULL : &E.erow[E.crsr_y];
+          E.crsr_x = E.erow[E.crsr_y].row_len - 1;
+        }
+        if (erow->row_str[E.crsr_x] == ' ') {
+          E.crsr_x--;
+        } else {
+          if (E.crsr_x == 0) {
+            break;
+          }
+          E.crsr_x--;
+          if (erow->row_str[E.crsr_x] == ' ') {
+            E.crsr_x++;
+            break;
+          }
+        }
+      }
       break;
     case MOVE_TOKEN_FORWARD:
       break;
@@ -259,7 +292,7 @@ void processNormal(int key) {
       moveCursor(key);
       break;
   }
-} 
+}
 
 int mapKeyInsert (int key) {
   switch (key) {
@@ -639,6 +672,11 @@ void initEditor(void) {
 }
 
 void freeEditor(void) {
+  for (int row_idx = 0; row_idx < E.num_row; row_idx++) {
+    free(E.erow[row_idx].row_str);
+    free(E.erow[row_idx].rndr_str);
+  }
+
   free(E.estat.stat_str);
   free(E.emsg.msg_str);
   free(E.cmd.cmd_str);
