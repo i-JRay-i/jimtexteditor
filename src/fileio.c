@@ -101,7 +101,7 @@ void erowFree(ERow *erow) {
   free(erow->row_str);
 }
 
-void erowDelete(int curr_row) {
+void erowDeleteRow(int curr_row) {
   if (curr_row < 0 || curr_row >= E.num_row)
     return;
   erowFree(&E.erow[curr_row]);

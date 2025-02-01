@@ -14,6 +14,6 @@ void erowAppend(int, char *, size_t);
 void erowAppendString(ERow *, char *, size_t);
 void erowInsertChar(ERow *, int, int);
 void erowDeleteChar(ERow *, int);
-void erowDelete(int);
+void erowDeleteRow(int);
 
 #endif 

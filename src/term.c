@@ -65,7 +65,7 @@ void moveCursor(int key) {
         E.crsr_y--;
       break;
     case MOVE_DOWN:
-      if (E.crsr_y < E.num_row)
+      if (E.crsr_y < E.num_row-1)
         E.crsr_y++;
       break;
     case MOVE_WORD_FORWARD:
@@ -323,8 +323,21 @@ void processNormal(int key) {
       fflush(stdout);
       break;
     case INSERT_LINE_PREV:
+      E.crsr_x = 0;
+      erowInsertRow();
+      E.crsr_y--;
+      E.emode = MODE_INSERT;
+      write(STDOUT_FILENO, "\x1b[5 q", 5);
+      fflush(stdout);
       break;
     case INSERT_LINE_NEXT:
+      E.crsr_x = 0;
+      E.crsr_y++;
+      erowInsertRow();
+      E.crsr_y--;
+      E.emode = MODE_INSERT;
+      write(STDOUT_FILENO, "\x1b[5 q", 5);
+      fflush(stdout);
       break;
     case COMMAND_KEY:
       E.emode = MODE_COMMAND;

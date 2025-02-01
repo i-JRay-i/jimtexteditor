@@ -20,7 +20,7 @@ void deleteChar(void) {
   } else {
     E.crsr_x = E.erow[E.crsr_y-1].row_len;
     erowAppendString(&E.erow[E.crsr_y-1], erow->row_str, erow->row_len);
-    erowDelete(E.crsr_y);
+    erowDeleteRow(E.crsr_y);
     E.crsr_y--;
   }
 }
