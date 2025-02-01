@@ -1,6 +1,7 @@
 #ifndef JIM_TERM_H
 #define JIM_TERM_H
 
+#include <ctype.h>
 #include <unistd.h>
 #include <termios.h>
 #include <stdarg.h>

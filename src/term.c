@@ -50,7 +50,7 @@ int getWindowSize(int *rows, int *cols) {
 }
 
 void moveCursor(int key) {
-  ERow *erow = (E.crsr_y >= E.num_row) ? NULL : &E.erow[E.crsr_y];
+  ERow *erow = (E.crsr_y < E.num_row) ? &E.erow[E.crsr_y] : NULL;
   switch (key) {
     case MOVE_LEFT:
       if (E.crsr_x > 0)
@@ -70,47 +70,36 @@ void moveCursor(int key) {
       break;
     case MOVE_WORD_FORWARD:
       while(erow) {
-        if (erow->row_str[E.crsr_x] != ' ') {
-          E.crsr_x++;
-        } else {
+        if (erow->row_str[E.crsr_x] == ' ') {
           E.crsr_x++;
           if (erow->row_str[E.crsr_x] != ' ')
             break;
-        }
-        if (E.crsr_x >= erow->row_len) {
+        } else if (erow->row_str[E.crsr_x] == '\0') {
           E.crsr_x = 0;
           E.crsr_y++;
-          erow = (E.crsr_y >= E.num_row) ? NULL : &E.erow[E.crsr_y];
+          erow = (E.crsr_y < E.num_row) ? &E.erow[E.crsr_y] : NULL;
           if (!erow || erow->row_str[0] != ' ')
             break;
-          continue;
+        } else {
+          E.crsr_x++;
         }
       }
       break;
     case MOVE_WORD_FORWARD_END:
-      if (!erow)
-        break;
       E.crsr_x++;
-      if (erow->row_str[E.crsr_x] == '\0') {
-        E.crsr_x = 0;
-        E.crsr_y++;
-        erow = (E.crsr_y >= E.num_row) ? NULL : &E.erow[E.crsr_y];
-      }
       while (erow) {
         if (erow->row_str[E.crsr_x] == ' ') {
           E.crsr_x++;
-          continue;
-        } else {
-          E.crsr_x++;
-        }
-        if (erow->row_str[E.crsr_x] == ' ' || erow->row_str[E.crsr_x] == '\0') {
-          E.crsr_x--;
-          break;
-        }
-        if (E.crsr_x >= erow->row_len) {
+        } else if (erow->row_str[E.crsr_x] == '\0') {
           E.crsr_x = 0;
           E.crsr_y++;
-          erow = (E.crsr_y >= E.num_row) ? NULL : &E.erow[E.crsr_y];
+          erow = (E.crsr_y < E.num_row) ? &E.erow[E.crsr_y] : NULL;
+        } else {
+          E.crsr_x++;
+          if (erow->row_str[E.crsr_x] == ' ' || erow->row_str[E.crsr_x] == '\0') {
+            E.crsr_x--;
+            break;
+          }
         }
       }
       break;
@@ -129,7 +118,7 @@ void moveCursor(int key) {
             break;
           }
           E.crsr_y--;
-          erow = (E.crsr_y >= E.num_row) ? NULL : &E.erow[E.crsr_y];
+          erow = &E.erow[E.crsr_y];
           E.crsr_x = E.erow[E.crsr_y].row_len - 1;
         }
         if (erow->row_str[E.crsr_x] == ' ') {
@@ -146,11 +135,91 @@ void moveCursor(int key) {
         }
       }
       break;
-    case MOVE_TOKEN_FORWARD:
+    case MOVE_TOKEN_FORWARD: 
+      while (erow) {
+        if (erow->row_str[E.crsr_x] == ' ') {
+          E.crsr_x++;
+          if (erow->row_str[E.crsr_x] != ' ')
+            break;
+        } else if (erow->row_str[E.crsr_x]  == '\0'){
+          E.crsr_x = 0;
+          E.crsr_y++;
+          erow = (E.crsr_y < E.num_row) ? &E.erow[E.crsr_y] : NULL;
+          if (!erow || erow->row_str[0] != ' ')
+            break;
+        } else if ((isalnum(erow->row_str[E.crsr_x])) || (erow->row_str[E.crsr_x]) == '_') {
+          E.crsr_x++;
+          if ((!isalnum(erow->row_str[E.crsr_x])) && (erow->row_str[E.crsr_x]) != '_' && (erow->row_str[E.crsr_x] != ' ')) {
+            break;
+          }
+        } else {
+          E.crsr_x++;
+          if ((isalnum(erow->row_str[E.crsr_x]) || erow->row_str[E.crsr_x] == '_') && erow->row_str[E.crsr_x] != ' ') {
+            break;
+          }
+        }
+      }
       break;
     case MOVE_TOKEN_FORWARD_END:
+      E.crsr_x++;
+      while (erow) {
+        if (erow->row_str[E.crsr_x] == ' ') {
+          E.crsr_x++;
+        } else if (erow->row_str[E.crsr_x]  == '\0') {
+          E.crsr_x = 0;
+          E.crsr_y++;
+          erow = (E.crsr_y < E.num_row) ? &E.erow[E.crsr_y] : NULL;
+          if (!erow || erow->row_str[0] == '\0')
+            break;
+        } else if ((isalnum(erow->row_str[E.crsr_x])) || (erow->row_str[E.crsr_x]) == '_') {
+          E.crsr_x++;
+          if ((!isalnum(erow->row_str[E.crsr_x]) && erow->row_str[E.crsr_x] != '_') || erow->row_str[E.crsr_x] == ' ') {
+            E.crsr_x--;
+            break;
+          }
+        } else {
+          E.crsr_x++;
+          if ((isalnum(erow->row_str[E.crsr_x]) || erow->row_str[E.crsr_x] == '_') || erow->row_str[E.crsr_x] == ' ') {
+            E.crsr_x--;
+            break;
+          }
+        }
+      }
       break;
     case MOVE_TOKEN_BACKWARD:
+      if (!erow) {
+        E.crsr_y--;
+        erow = (E.crsr_y >= E.num_row) ? NULL : &E.erow[E.crsr_y];
+        E.crsr_x = E.erow[E.crsr_y].row_len - 1;
+        break;
+      }
+      E.crsr_x--;
+      while (erow) {
+        if (E.crsr_x < 0) {
+          if (E.crsr_y == 0) {
+            E.crsr_x = 0;
+            break;
+          }
+          E.crsr_y--;
+          erow = &E.erow[E.crsr_y];
+          E.crsr_x = E.erow[E.crsr_y].row_len - 1;
+        }
+        if (erow->row_str[E.crsr_x] == ' ') {
+          E.crsr_x--;
+        } else if ((isalnum(erow->row_str[E.crsr_x])) || (erow->row_str[E.crsr_x]) == '_') {
+          E.crsr_x--;
+          if ((!isalnum(erow->row_str[E.crsr_x]) && erow->row_str[E.crsr_x] != '_') || erow->row_str[E.crsr_x] == ' ') {
+            E.crsr_x++;
+            break;
+          }
+        } else {
+          E.crsr_x--;
+          if ((isalnum(erow->row_str[E.crsr_x]) || (erow->row_str[E.crsr_x]) == '_') || erow->row_str[E.crsr_x] == ' ') {
+            E.crsr_x++;
+            break;
+          }
+        }
+      }
       break;
     case HALF_PAGE_UP:
       E.crsr_y -= HALF_PAGE_SIZE;

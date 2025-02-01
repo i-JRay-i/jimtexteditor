@@ -21,11 +21,9 @@ fileio.o: fileio.c
 term.o: term.c
 	$(CC) $(CFLAGS) -o term.o -c term.c
 
-clear:
+clean:
 	rm -f *.o
 
 touch:
 	touch $(srcall)
 
-clean:
-	rm -rf $(all)

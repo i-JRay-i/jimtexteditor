@@ -9,27 +9,31 @@ A VIM clone written in C
 
 ## About
 
-JIM is a hobby project initiated a month ago as a practice for programming in C. The idea was to use C with standard libraries in order to understand the details of terminal-based software development with C on Linux environment. This project is essentially based on SnapToken's tutorial [*Text Editor in C*](https://viewsourcecode.org/snaptoken/kilo/), which itself is a modified version of Antirez's [*kilo*](https://github.com/antirez/kilo) text editor. Under the hood, the basic architecture of the JIM text editor resembles kilo (line-based editing and rendering), however, the JIM editor contains further features, such as editor modes and motion keys inspired by VIM.
+JIM is a hobby project initiated a month ago as a practice for programming in C. The idea was to use C with standard libraries in order to understand the details of terminal-based software development with C on Linux environment. This project is essentially based on SnapToken's tutorial [*Text Editor in C*](https://viewsourcecode.org/snaptoken/kilo/), which itself is a modified version of Antirez's [*kilo*](https://github.com/antirez/kilo) text editor.
 
 The JIM editor is named after my nickname (Jimmy Ray) and the editor that inspired it (VI/M).
 
 The editor code does not take more than 2000 lines. However, I decided to divide the source code into multiple files in order to learn how to use make. 
 
-## Features
+The goal is not a complete feature parity, nor the same behavior. There will be liberty in deciding how many of the features of VIM will be present in JIM, in which way they will be implemented, and how they will behave. However, I intend to make the editor as featureful as possible and close enough to a VIM experience.
+
+## Features present
 
 - Viewing and editing any file
 - Three modes: NORMAL, INSERT, COMMAND
 - Entering the COMMAND mode with : 
 - Save and exit commands
 - Processing shell commands in COMMAND mode
-- Basic motions in NORMAL mode (moving inside the editor with {hjkl}, word forward and backward with {WBE}, half page down and up with CTRL+D and CTRL+U)
+- Basic motions in NORMAL mode (moving inside the editor with {hjkl}, word forward and backward with {WBE}, token forward and backward with {wbe}, half page down and up with CTRL+D and CTRL+U)
 - Arrow keys to move inside the editor in INSERT mode
 - Status and message bars
 - string search functionality (Enter search prompt with /, scroll through the document with n and N keys)
 
 ## Features planned
 
-- VISUAL mode in VIM
-- syntax highlighting
+- yank with y
+- VISUAL mode
 - configuration file
 - undo and redo commands
+- delete move with d
+- syntax highlighting
