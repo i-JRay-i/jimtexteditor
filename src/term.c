@@ -712,23 +712,23 @@ void initEditor(void) {
   E.erow = NULL;
   E.num_row = 0;
 
-  E.estat.stat_size = 512;
+  E.estat.stat_size = DEFAULT_STR_SIZE ;
   E.estat.stat_str = malloc(E.estat.stat_size);
   E.estat.stat_str[0] = '\0';
   E.estat.stat_len = 0;
 
-  E.emsg.msg_size = 512;
+  E.emsg.msg_size = DEFAULT_STR_SIZE ;
   E.emsg.msg_str = malloc(E.emsg.msg_size);
   E.emsg.msg_str[0] = '\0';
   E.emsg.msg_len = 0;
   E.emsg.msg_time = 0;
 
-  E.cmd.cmd_size = 512;
+  E.cmd.cmd_size = DEFAULT_STR_SIZE ;
   E.cmd.cmd_str = malloc(E.cmd.cmd_size);
   E.cmd.cmd_str[0] = '\0';
   E.cmd.cmd_len = 0;
 
-  E.srch.srch_size = 512;
+  E.srch.srch_size = DEFAULT_STR_SIZE ;
   E.srch.srch_str = malloc(E.srch.srch_size);
   E.srch.srch_str[0] = '\0';
   E.srch.srch_len = 0;
