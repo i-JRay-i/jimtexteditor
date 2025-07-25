@@ -17,6 +17,7 @@
 #define MSG_TIME 3
 #define PAGE_SIZE 64
 #define HALF_PAGE_SIZE 32
+#define DEFAULT_STR_SIZE 1024
 
 typedef enum editor_mode {
   MODE_NORMAL,
