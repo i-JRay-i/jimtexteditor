@@ -24,8 +24,9 @@ The goal is not a complete feature parity, nor the same behavior. There will be 
 - Entering the COMMAND mode with {:}
 - Save and exit commands
 - Processing shell commands in COMMAND mode
-- Basic motions in NORMAL mode (moving inside the editor with {hjkl}, word forward and backward with {WBE}, token forward and backward with {wbe}, half page down and up with CTRL+D and CTRL+U)
-- INSERT mode, insert on the cursor with {i}, after the cursor {a}, insert a line above {O} or below {o}
+- Basic motions in NORMAL mode (moving inside the editor with one character {h,j,k,l}, word forward and backward with {w,b.e}, WORD forward and backward with {W,B,E}, half page down and up with CTRL+D and CTRL+U)
+- INSERT mode, insert on the cursor (insert) with {i}, after the cursor (append) {a}, insert a line above {O} or below {o}
+- Delete action
 - Arrow keys to move inside the editor in INSERT mode
 - Status and message bars
 - string search functionality (Enter search prompt with /, scroll through the document with n and N keys)
@@ -35,6 +36,5 @@ The goal is not a complete feature parity, nor the same behavior. There will be 
 - yank with y
 - VISUAL mode
 - undo and redo commands
-- delete move with d
 - syntax highlighting
 - configuration file
