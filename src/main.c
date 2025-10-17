@@ -2,8 +2,6 @@
 #include "output.h"
 #include "fileio.h"
 
-#define CTRL_KEY(key) (key & 0x1f)
-
 EConf E;
 
 int main(int argc, char *argv[]) {
@@ -12,9 +10,10 @@ int main(int argc, char *argv[]) {
     openFile(argv[1]);
   }
   setMessage(HELP_MSG);
-  while (1){
+  while (1) {
     refreshScreen();
     processKey();
   }
   return 0;
 }
+

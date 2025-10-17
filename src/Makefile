@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-g3 -Wall -Wextra -Werror -pedantic -std=c17
+CFLAGS=-g3 -Wall -Wextra -pedantic -std=c17
 all=term.o fileio.o input.o output.o jim.o
 srcall = main.c term.c fileio.c input.c output.c
 

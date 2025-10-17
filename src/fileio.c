@@ -51,6 +51,8 @@ void erowAppend(int cur_row, char *str, size_t len) {
   E.dirt_flag_pos++;
 }
 
+int a = 5;
+
 void erowAppendString(ERow *erow, char *str, size_t str_len) {
   erow->row_str = realloc(erow->row_str, erow->row_len+str_len+1);
   memcpy(&erow->row_str[erow->row_len], str, str_len);
