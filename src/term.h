@@ -17,7 +17,7 @@
 #define MSG_TIME 3
 #define PAGE_SIZE 64
 #define HALF_PAGE_SIZE 32
-#define DEFAULT_STR_SIZE 1024
+#define HIST_BUFF_STACK_SIZE 30
 
 typedef enum editor_mode {
   MODE_NORMAL,
@@ -58,6 +58,7 @@ typedef enum editor_key {
   SEARCH_KEY,
   SEARCH_FORWARD,
   SEARCH_BACKWARD,
+  DELETE_KEY,
   SAVE_KEY,
   EXIT_KEY
 } Key;
@@ -71,12 +72,14 @@ typedef struct editor_row {
   char *rndr_cls; // Rendered string class for syntax highlight
 } ERow;
 
+/* Status message string object to be displayed on the status bar */
 typedef struct editor_status {
   char *stat_str; // status string
   size_t stat_len; // status string length
   size_t stat_size; // status string array size
 } EStat;
 
+/* Message string object to be displayed on the message bar */
 typedef struct editor_message {
   char *msg_str; // message string
   size_t msg_len; // message string length
@@ -84,12 +87,14 @@ typedef struct editor_message {
   time_t msg_time; // message string appear time
 } EMsg;
 
+/* Command string object */
 typedef struct editor_command {
   char *cmd_str; // command string
   size_t cmd_len; // command string length
   size_t cmd_size; // command string array size
 } CMD;
 
+/* String object to hold the search string */
 typedef struct editor_search_string {
   char *srch_str;
   size_t srch_len; // Search string length
@@ -100,7 +105,15 @@ typedef struct editor_search_string {
   int *srch_match_y;
 } ESrch;
 
-typedef struct editor_config { // Configuration variables for the editor
+/* Buffer for saving the history of the file between mode switches and cursor movements */
+typedef struct editor_text_buffer {
+  size_t buff_len;
+  size_t buff_idx;
+  ERow **erow_buff;
+} EBuffer;
+
+/* Configuration variables for the editor */
+typedef struct editor_config {
   int term_width, term_height;
   int crsr_x, crsr_y; // Cursor coordinates in the file
   int crsr_cmd_x, crsr_cmd_y; // Cursor coordinates in command mode
@@ -109,6 +122,7 @@ typedef struct editor_config { // Configuration variables for the editor
   int num_row; // The total number of rows in the open file
   int dirt_flag_pos, dirt_flag_neg; // Dirt flags to record bytes added/removed
   ERow *erow; // An array of ERow struct
+  EBuffer *ebuff; // Buffer struct for the editor history
   EMode emode; // Editor mode
   EStat estat; // Editor status bar object
   EMsg emsg; // Editor message bar object
@@ -141,5 +155,6 @@ void setMessage(const char *, ...);
 void findQuery(void);
 void searchQuery(void);
 void searchPrompt(void);
+void deleteAction(void);
 
 #endif

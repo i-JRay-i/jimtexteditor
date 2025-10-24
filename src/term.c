@@ -282,25 +282,26 @@ int mapKeyNormal(int key) {
     case 'j': return MOVE_DOWN;
     case 'k': return MOVE_UP;
     case 'l': return MOVE_RIGHT;
-    case 'i': return INSERT_KEY;
-    case 'a': return INSERT_NEXT_KEY;
-    case 'o': return INSERT_LINE_NEXT;
-    case 'O': return INSERT_LINE_PREV;
-    case ':': return COMMAND_KEY;
     case 'W': return MOVE_WORD_FORWARD;
     case 'E': return MOVE_WORD_FORWARD_END;
     case 'B': return MOVE_WORD_BACKWARD;
     case 'w': return MOVE_TOKEN_FORWARD;
     case 'e': return MOVE_TOKEN_FORWARD_END;
     case 'b': return MOVE_TOKEN_BACKWARD;
-    case CTRL_KEY('u'): return HALF_PAGE_UP;
-    case CTRL_KEY('d'): return HALF_PAGE_DOWN;
     case 'G': return EOF_KEY;
     case '$': return EOL_KEY;
     case '0': return INIT_LINE_KEY;
+    case 'i': return INSERT_KEY;
+    case 'a': return INSERT_NEXT_KEY;
+    case 'o': return INSERT_LINE_NEXT;
+    case 'O': return INSERT_LINE_PREV;
+    case ':': return COMMAND_KEY;
+    case CTRL_KEY('u'): return HALF_PAGE_UP;
+    case CTRL_KEY('d'): return HALF_PAGE_DOWN;
     case '/': return SEARCH_KEY;
     case 'n': return SEARCH_FORWARD;
     case 'N': return SEARCH_BACKWARD;
+    case 'd': return DELETE_KEY;
     default: return key;
   }
 }
@@ -357,6 +358,9 @@ void processNormal(int key) {
       if (E.srch.srch_match_idx >= E.srch.srch_match_num)
         E.srch.srch_match_idx = E.srch.srch_match_num-1;
       searchQuery();
+      break;
+    case DELETE_KEY:
+      deleteAction();
       break;
     case HALF_PAGE_UP:
     case HALF_PAGE_DOWN:
@@ -628,6 +632,139 @@ void searchPrompt(void) {
   }
 }
 
+void processDelete(void) {
+  int key = readKey();
+  while (key == 0) {
+    key = readKey();
+  }
+  int curr_x = E.crsr_x;
+  int curr_y = E.crsr_y;
+  switch (key) {
+    case '\x1b': 
+      break;
+    case 'd':
+      E.crsr_x = E.erow[E.crsr_y].row_len;
+      while (curr_y == E.crsr_y) {
+        deleteChar();
+      }
+      E.crsr_x = curr_x; E.crsr_y = curr_y;
+      break;
+    case '0':
+      while (E.crsr_x > 0) {
+        deleteChar();
+      }
+      break;
+    case '$':
+      while (E.crsr_x < E.erow[E.crsr_y].row_len) {
+        deleteChar();
+        E.crsr_x++;
+      }
+      deleteChar();
+      break;
+    case 'w':
+      if (isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
+        while (isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
+          E.crsr_x++;
+          deleteChar();
+        }
+      } else if (!isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
+        while (!isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
+          E.crsr_x++;
+          deleteChar();
+        }
+      } 
+      while (E.erow[E.crsr_y].row_str[E.crsr_x] == ' ') {
+        E.crsr_x++;
+        deleteChar();
+      }
+      break;
+    case 'e':
+      while (E.erow[E.crsr_y].row_str[E.crsr_x] == ' ') {
+        E.crsr_x++;
+        deleteChar();
+      }
+      if (isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
+        while (isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
+          E.crsr_x++;
+          deleteChar();
+        }
+      } else if (!isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
+        while (!isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
+          E.crsr_x++;
+          deleteChar();
+        }
+      }
+      break;
+    case 'b':
+      if (E.crsr_x == 0 && E.crsr_y == 0)
+        break;
+      E.crsr_x--;
+      while (E.erow[E.crsr_y].row_str[E.crsr_x] == ' ') {
+        E.crsr_x++;
+        deleteChar();
+        E.crsr_x--;
+      }
+      if (isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
+        while (isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
+          E.crsr_x++;
+          deleteChar();
+          E.crsr_x--;
+        }
+      } else if (!isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
+        while (!isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
+          E.crsr_x++;
+          deleteChar();
+          E.crsr_x--;
+        }
+      }
+      E.crsr_x++;
+      break;
+    case 'W':
+      while (E.erow[E.crsr_y].row_str[E.crsr_x] != ' ' && E.erow[E.crsr_y].row_str[E.crsr_x] != '\0') {
+        E.crsr_x++;
+        deleteChar();
+      } while (E.erow[E.crsr_y].row_str[E.crsr_x] == ' ') {
+        E.crsr_x++;
+        deleteChar();
+      }
+      break;
+    case 'E':
+      while (E.erow[E.crsr_y].row_str[E.crsr_x] == ' ') {
+        E.crsr_x++;
+        deleteChar();
+      } while (E.erow[E.crsr_y].row_str[E.crsr_x] != ' '&& E.erow[E.crsr_y].row_str[E.crsr_x] != '\0') {
+        E.crsr_x++;
+        deleteChar();
+      }
+      break;
+    case 'B':
+      if (E.crsr_x == 0 && E.crsr_y == 0)
+        break;
+      E.crsr_x--;
+      while (E.erow[E.crsr_y].row_str[E.crsr_x] == ' ') {
+        E.crsr_x++;
+        deleteChar();
+        E.crsr_x--;
+      } while (E.erow[E.crsr_y].row_str[E.crsr_x] != ' ' && E.erow[E.crsr_y].row_str[E.crsr_x] != '\0') {
+        E.crsr_x++;
+        deleteChar();
+        E.crsr_x--;
+      }
+      E.crsr_x++;
+      break;
+    default:
+      break;
+  }
+  return;
+}
+
+void deleteAction(void) {
+  write(STDOUT_FILENO, "\x1b[3 q", 5);
+  processDelete();
+  write(STDOUT_FILENO, "\x1b[2 q", 5);
+  return;
+}
+
 void commandPrompt(void) {
   while (1) {
     int key = readKey();
@@ -725,23 +862,29 @@ void initEditor(void) {
   E.erow = NULL;
   E.num_row = 0;
 
-  E.estat.stat_size = DEFAULT_STR_SIZE ;
+  E.ebuff = malloc(sizeof(EBuffer));
+  E.ebuff->buff_len = HIST_BUFF_STACK_SIZE;
+  E.ebuff->buff_idx = 0;
+  //E.ebuff->erow_buff = malloc(E.ebuff->buff_len * sizeof(*E.ebuff->erow_buff));
+  E.ebuff->erow_buff = NULL;
+
+  E.estat.stat_size = 512;
   E.estat.stat_str = malloc(E.estat.stat_size);
   E.estat.stat_str[0] = '\0';
   E.estat.stat_len = 0;
 
-  E.emsg.msg_size = DEFAULT_STR_SIZE ;
+  E.emsg.msg_size = 512;
   E.emsg.msg_str = malloc(E.emsg.msg_size);
   E.emsg.msg_str[0] = '\0';
   E.emsg.msg_len = 0;
   E.emsg.msg_time = 0;
 
-  E.cmd.cmd_size = DEFAULT_STR_SIZE ;
+  E.cmd.cmd_size = 512;
   E.cmd.cmd_str = malloc(E.cmd.cmd_size);
   E.cmd.cmd_str[0] = '\0';
   E.cmd.cmd_len = 0;
 
-  E.srch.srch_size = DEFAULT_STR_SIZE ;
+  E.srch.srch_size = 512;
   E.srch.srch_str = malloc(E.srch.srch_size);
   E.srch.srch_str[0] = '\0';
   E.srch.srch_len = 0;

@@ -24,3 +24,4 @@ void deleteChar(void) {
     E.crsr_y--;
   }
 }
+
