@@ -16,4 +16,4 @@ void erowInsertChar(ERow *, int, int);
 void erowDeleteChar(ERow *, int);
 void erowDeleteRow(int);
 
-#endif 
+#endif // JIM_FILEIO_H

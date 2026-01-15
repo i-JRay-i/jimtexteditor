@@ -4,7 +4,7 @@
 
 #include "fileio.h"
 
-void erowRender(ERow *erow) {
+void erowRender (ERow * erow) {
   int num_tabs = 0;
   for (int row_idx = 0; row_idx < erow->row_len; row_idx++) {
     if (erow->row_str[row_idx] == '\t')
@@ -31,7 +31,7 @@ void erowRender(ERow *erow) {
   erow->rndr_len = rndr_idx;
 }
 
-void erowAppend(int cur_row, char *str, size_t len) {
+void erowAppend (int cur_row, char *str, size_t len) {
   if (cur_row < 0 || cur_row > E.num_row)
     return;
   E.erow = realloc(E.erow, sizeof(ERow)*(E.num_row+1));
@@ -53,7 +53,7 @@ void erowAppend(int cur_row, char *str, size_t len) {
 
 int a = 5;
 
-void erowAppendString(ERow *erow, char *str, size_t str_len) {
+void erowAppendString (ERow * erow, char *str, size_t str_len) {
   erow->row_str = realloc(erow->row_str, erow->row_len+str_len+1);
   memcpy(&erow->row_str[erow->row_len], str, str_len);
   erow->row_len+=str_len;
@@ -62,7 +62,7 @@ void erowAppendString(ERow *erow, char *str, size_t str_len) {
   E.dirt_flag_pos++;
 }
 
-void erowInsertChar(ERow *erow, int curr, int ch) {
+void erowInsertChar (ERow * erow, int curr, int ch) {
   if (curr < 0 || curr > erow->row_len)
     curr = erow->row_len;
   erow->row_str = realloc(erow->row_str, erow->row_len + 2);
@@ -74,7 +74,7 @@ void erowInsertChar(ERow *erow, int curr, int ch) {
   E.dirt_flag_pos++;
 }
 
-void erowInsertRow(void) {
+void erowInsertRow (void) {
   if (E.crsr_x == 0) {
     erowAppend(E.crsr_y, "", 0);
   } else {
@@ -89,7 +89,7 @@ void erowInsertRow(void) {
   E.crsr_x=0;
 }
 
-void erowDeleteChar(ERow *erow, int crsr_pos) {
+void erowDeleteChar (ERow *erow, int crsr_pos) {
   if (crsr_pos < 0 || crsr_pos >= erow->row_len)
     return;
   memmove(&erow->row_str[crsr_pos], &erow->row_str[crsr_pos+1], erow->row_len - crsr_pos);
@@ -103,7 +103,7 @@ void erowFree(ERow *erow) {
   free(erow->row_str);
 }
 
-void erowDeleteRow(int curr_row) {
+void erowDeleteRow (int curr_row) {
   if (curr_row < 0 || curr_row >= E.num_row)
     return;
   erowFree(&E.erow[curr_row]);
@@ -112,7 +112,7 @@ void erowDeleteRow(int curr_row) {
   E.dirt_flag_neg++;
 }
 
-char *writeFile(int *len_file) {
+char * writeFile (int * len_file) {
   int len_total = 0;
   for (int row_idx = 0; row_idx < E.num_row; row_idx++)
     len_total += E.erow[row_idx].row_len + 1;
@@ -129,7 +129,7 @@ char *writeFile(int *len_file) {
   return file;
 }
 
-char *newsavePrompt(void) {
+char * newsavePrompt (void) {
   size_t max_len = 256;
   char *input = malloc(max_len);
   size_t input_len = 0;
@@ -160,13 +160,13 @@ char *newsavePrompt(void) {
   }
 }
 
-void saveFile(void) {
+void saveFile (void) {
   if (E.filename == NULL) {
     E.filename = newsavePrompt();
   }
 
   int len = 0;
-  char *file = writeFile(&len);
+  char * file = writeFile(&len);
 
   int fd = open(E.filename, (O_RDWR | O_CREAT), 0644);
   if (fd != -1) {
@@ -187,17 +187,18 @@ void saveFile(void) {
   setMessage("Can't save: I/O error: %s", strerror(errno));
 }
 
-void openFile(char *filename) {
-  E.filename = filename;
+void openFile (char * filename) {
+  E.filename = malloc(sizeof(char) * (strlen(filename) + 1));
+  strcpy(E.filename, filename);
 
-  FILE *p_file = fopen(filename, "r");
+  FILE * p_file = fopen(filename, "r");
   if (!p_file) {
     int fd = open(E.filename, (O_RDWR | O_CREAT), 0644);
     close(fd);
     p_file = fopen(filename, "r");
   }
 
-  char *line = NULL;
+  char * line = NULL;
   size_t line_cap = 0;
   ssize_t line_len = 0;
 

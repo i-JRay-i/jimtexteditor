@@ -4,4 +4,4 @@
 #include "term.h"
 #include "fileio.h"
 
-#endif
+#endif // JIM_INPUT_H

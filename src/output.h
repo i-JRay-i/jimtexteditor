@@ -13,4 +13,4 @@ typedef struct output_buffer{
 
 void refreshScreen(void);
 
-#endif
+#endif // JIM_OUTPUT_H

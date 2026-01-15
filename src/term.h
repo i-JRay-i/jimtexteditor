@@ -12,7 +12,7 @@
 #include <time.h>
 
 #define HELP_MSG "HELP: :q = quit | :w = save | :q! = quit wout save | :help = print this message"
-#define JIM_VERSION "0.0.2"
+#define JIM_VERSION "0.0.5"
 #define TAB_SIZE 8
 #define MSG_TIME 3
 #define PAGE_SIZE 64
@@ -58,6 +58,8 @@ typedef enum editor_key {
   SEARCH_KEY,
   SEARCH_FORWARD,
   SEARCH_BACKWARD,
+  UNDO_KEY,
+  REDO_KEY,
   DELETE_KEY,
   SAVE_KEY,
   EXIT_KEY
@@ -107,9 +109,12 @@ typedef struct editor_search_string {
 
 /* Buffer for saving the history of the file between mode switches and cursor movements */
 typedef struct editor_text_buffer {
-  size_t buff_len;
-  size_t buff_idx;
-  ERow **erow_buff;
+  size_t buff_len; // Number of ERow buffers filled
+  size_t buff_idx; // Index of the current buffer
+  ERow **erow_buff; // Array of ERow arrays (HIST_BUFF_STACK_SIZE * num_row[idx])
+  int *crsr_x_buff;
+  int *crsr_y_buff;
+  int *num_row_buff;
 } EBuffer;
 
 /* Configuration variables for the editor */
@@ -134,27 +139,30 @@ typedef struct editor_config {
 
 extern EConf E;
 
-void die(const char*);
-int readKey(void);
-void printKey(void);
-void processKey(void);
-void editorScroll(void);
-void refreshScreen(void);
-void initEditor(void);
-void freeEditor(void);
-void exitEditor(void);
-void disableRawMode(void);
-void appendStatusString(char *, unsigned int);
-void appendMessageString(char *, unsigned int);
-int getWindowSize(int *, int *);
-void insertChar(int);
-void deleteChar(void);
-void erowInsertRow(void);
-void saveFile(void);
-void setMessage(const char *, ...);
-void findQuery(void);
-void searchQuery(void);
-void searchPrompt(void);
-void deleteAction(void);
+void die (const char*);
+int readKey (void);
+void printKey (void);
+void processKey (void);
+void editorScroll (void);
+void refreshScreen (void);
+void initEditor (void);
+void freeEditor (void);
+void exitEditor (void);
+void disableRawMode (void);
+void appendStatusString (char *, unsigned int);
+void appendMessageString (char *, unsigned int);
+int getWindowSize (int *, int *);
+void insertChar (int);
+void deleteChar (void);
+void erowInsertRow (void);
+void saveFile (void);
+void setMessage (const char *, ...);
+void findQuery (void);
+void searchQuery (void);
+void searchPrompt (void);
+void deleteAction (void);
+void bufferSaveEditorState (void);
+void bufferEditorUndo (void);
+void bufferEditorRedo (void);
 
-#endif
+#endif // JIM_TERM_H

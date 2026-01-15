@@ -190,7 +190,6 @@ void moveCursor(int key) {
       if (!erow) {
         E.crsr_y--;
         erow = (E.crsr_y >= E.num_row) ? NULL : &E.erow[E.crsr_y];
-        E.crsr_x = E.erow[E.crsr_y].row_len - 1;
         break;
       }
       E.crsr_x--;
@@ -302,6 +301,8 @@ int mapKeyNormal(int key) {
     case 'n': return SEARCH_FORWARD;
     case 'N': return SEARCH_BACKWARD;
     case 'd': return DELETE_KEY;
+    case 'u': return UNDO_KEY;
+    case CTRL_KEY('r'): return REDO_KEY;
     default: return key;
   }
 }
@@ -362,6 +363,12 @@ void processNormal(int key) {
     case DELETE_KEY:
       deleteAction();
       break;
+    case UNDO_KEY:
+      bufferEditorUndo();
+      break;
+    case REDO_KEY:
+      bufferEditorRedo();
+      break;
     case HALF_PAGE_UP:
     case HALF_PAGE_DOWN:
     case MOVE_LEFT:
@@ -420,6 +427,8 @@ void processInsert (int key) {
     case NORMAL_KEY:
       E.emode = MODE_NORMAL;
       write(STDOUT_FILENO, "\x1b[2 q", 5);
+      if (E.dirt_flag_pos || E.dirt_flag_neg)
+        bufferSaveEditorState();
       break;
     case NEWLINE_KEY:
       erowInsertRow();
@@ -789,6 +798,10 @@ void processKey(void) {
     processInsert(key);
   } else if (E.emode == MODE_COMMAND) {
     commandPrompt();
+  } else if (E.emode == MODE_VISUAL) {
+    return;
+  } else {
+    return;
   }
 }
 
@@ -824,11 +837,13 @@ void setMessage(const char *fmt, ...) {
   E.emsg.msg_time = time(NULL);
 }
 
+/* Retrieving the terminal back to the default configuration */
 void disableRawMode(void) {
   if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &term_conf_def) == -1)
     die("tcsetattr");
 }
 
+/* Changing the terminal to the "raw" mode. */
 void enableRawMode(void) {
   if (tcgetattr(STDIN_FILENO, &term_conf_def) == -1)
     die("tcgetattr");  
@@ -847,7 +862,8 @@ void enableRawMode(void) {
     die("tcsetattr");
 }
 
-void initEditor(void) {
+/* Initializing the Editor object. */
+void initEditor (void) {
   enableRawMode();
   getWindowSize(&E.term_height, &E.term_width);
 
@@ -862,28 +878,41 @@ void initEditor(void) {
   E.erow = NULL;
   E.num_row = 0;
 
+  // Setting up the history buffer 
   E.ebuff = malloc(sizeof(EBuffer));
-  E.ebuff->buff_len = HIST_BUFF_STACK_SIZE;
+  E.ebuff->buff_len = 0;
   E.ebuff->buff_idx = 0;
-  //E.ebuff->erow_buff = malloc(E.ebuff->buff_len * sizeof(*E.ebuff->erow_buff));
-  E.ebuff->erow_buff = NULL;
+  E.ebuff->erow_buff = malloc(sizeof(ERow *) * HIST_BUFF_STACK_SIZE);
+  E.ebuff->crsr_x_buff = malloc(sizeof(int) * HIST_BUFF_STACK_SIZE);
+  E.ebuff->crsr_y_buff = malloc(sizeof(int) * HIST_BUFF_STACK_SIZE);
+  E.ebuff->num_row_buff = malloc(sizeof(int) * HIST_BUFF_STACK_SIZE);
+  for (int idx = 0; idx < HIST_BUFF_STACK_SIZE; idx++) {
+    E.ebuff->crsr_x_buff[idx] = 0;
+    E.ebuff->crsr_y_buff[idx] = 0;
+    E.ebuff->num_row_buff[idx] = 0;
+    E.ebuff->erow_buff[idx] = NULL;
+  }
 
+  // Initializing the status message buffer
   E.estat.stat_size = 512;
   E.estat.stat_str = malloc(E.estat.stat_size);
   E.estat.stat_str[0] = '\0';
   E.estat.stat_len = 0;
 
+  // Initializing the editor message buffer
   E.emsg.msg_size = 512;
   E.emsg.msg_str = malloc(E.emsg.msg_size);
   E.emsg.msg_str[0] = '\0';
   E.emsg.msg_len = 0;
   E.emsg.msg_time = 0;
 
+  // Initializing the command buffer
   E.cmd.cmd_size = 512;
   E.cmd.cmd_str = malloc(E.cmd.cmd_size);
   E.cmd.cmd_str[0] = '\0';
   E.cmd.cmd_len = 0;
 
+  // Initializing the search buffer
   E.srch.srch_size = 512;
   E.srch.srch_str = malloc(E.srch.srch_size);
   E.srch.srch_str[0] = '\0';
@@ -896,11 +925,42 @@ void initEditor(void) {
   E.filename = NULL;
 }
 
-void freeEditor(void) {
+/* Frees up the memory allocated for the Editor object before shutting down. */
+void freeEditor (void) {
   for (int row_idx = 0; row_idx < E.num_row; row_idx++) {
+    E.erow[row_idx].row_len = 0;
+    E.erow[row_idx].rndr_len = 0;
     free(E.erow[row_idx].row_str);
     free(E.erow[row_idx].rndr_str);
+    free(E.erow[row_idx].rndr_cls);
   }
+  E.num_row = 0;
+
+  // Freeing up the whole editor history buffer.
+  for (int buff_idx = 0; buff_idx < (int) E.ebuff->buff_len; buff_idx++) {
+    for (int erow_idx = 0; erow_idx < E.ebuff->num_row_buff[buff_idx]; erow_idx++) {
+      E.ebuff->erow_buff[buff_idx][erow_idx].row_len = 0;
+      E.ebuff->erow_buff[buff_idx][erow_idx].rndr_len = 0;
+      free(E.ebuff->erow_buff[buff_idx][erow_idx].row_str);
+      free(E.ebuff->erow_buff[buff_idx][erow_idx].rndr_str);
+      //free(E.ebuff->erow_buff[buff_idx][erow_idx].rndr_cls);
+    }
+    E.ebuff->crsr_x_buff[buff_idx] = 0;
+    E.ebuff->crsr_y_buff[buff_idx] = 0;
+    E.ebuff->num_row_buff[buff_idx] = 0;
+    free(E.ebuff->erow_buff[buff_idx]);
+  }
+  E.ebuff->buff_len = 0;
+
+  // Freeing the rest of the EBuffer object
+  free(E.ebuff->erow_buff);
+  free(E.ebuff->crsr_x_buff);
+  free(E.ebuff->crsr_y_buff);
+  free(E.ebuff->num_row_buff);
+
+  E.estat.stat_len = 0;
+  E.emsg.msg_len = 0;
+  E.cmd.cmd_len = 0;
 
   free(E.estat.stat_str);
   free(E.emsg.msg_str);
@@ -908,9 +968,11 @@ void freeEditor(void) {
   free(E.srch.srch_str);
   free(E.srch.srch_match_x);
   free(E.srch.srch_match_y);
+  free(E.filename);
 }
 
-void exitEditor(void) {
+/* Cleaning up the memory and recovering the default terminal. */
+void exitEditor (void) {
   write(STDOUT_FILENO, "\x1b[2J", 4);
   write(STDOUT_FILENO, "\x1b[H", 3);
 
