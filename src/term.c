@@ -654,12 +654,17 @@ void processCopy (void) {
     key = readKey();
   }
 
-  //int curr_x = E.crsr_x;
-  //int curr_y = E.crsr_y;
+  int curr_y = E.crsr_y;
   switch (key) {
-    case 'y':
+    case '\x1b':
       break;
-    default: 
+    case 'y':
+      if (curr_y < E.num_row) {
+        bufferCopyToEClip(curr_y, curr_y);
+        setMessage("Yanked %d line(s).", E.eclip->num_row_eclip);
+      }
+      break;
+    default:
       break;
   }
   return;
@@ -682,11 +687,13 @@ void processDelete (void) {
         deleteChar();
       }
       E.crsr_x = curr_x; E.crsr_y = curr_y;
+      setMessage("Deleted 1 line");
       break;
     case '0':
       while (E.crsr_x > 0) {
         deleteChar();
       }
+      setMessage("Deleted everything before the cursor in the line.");
       break;
     case '$':
       while (E.crsr_x < E.erow[E.crsr_y].row_len) {
@@ -694,6 +701,7 @@ void processDelete (void) {
         E.crsr_x++;
       }
       deleteChar();
+      setMessage("Deleted everything after the cursor in the line.");
       break;
     case 'w':
       if (isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
@@ -711,6 +719,7 @@ void processDelete (void) {
         E.crsr_x++;
         deleteChar();
       }
+      setMessage("Deleted 1 word.");
       break;
     case 'e':
       while (E.erow[E.crsr_y].row_str[E.crsr_x] == ' ') {
@@ -728,6 +737,7 @@ void processDelete (void) {
           deleteChar();
         }
       }
+      setMessage("Deleted 1 word.");
       break;
     case 'b':
       if (E.crsr_x == 0 && E.crsr_y == 0)
@@ -752,6 +762,7 @@ void processDelete (void) {
         }
       }
       E.crsr_x++;
+      setMessage("Deleted 1 word before.");
       break;
     case 'W':
       while (E.erow[E.crsr_y].row_str[E.crsr_x] != ' ' && E.erow[E.crsr_y].row_str[E.crsr_x] != '\0') {
@@ -761,6 +772,7 @@ void processDelete (void) {
         E.crsr_x++;
         deleteChar();
       }
+      setMessage("Deleted 1 WORD.");
       break;
     case 'E':
       while (E.erow[E.crsr_y].row_str[E.crsr_x] == ' ') {
@@ -770,6 +782,7 @@ void processDelete (void) {
         E.crsr_x++;
         deleteChar();
       }
+      setMessage("Deleted 1 WORD.");
       break;
     case 'B':
       if (E.crsr_x == 0 && E.crsr_y == 0)
@@ -785,6 +798,7 @@ void processDelete (void) {
         E.crsr_x--;
       }
       E.crsr_x++;
+      setMessage("Deleted 1 WORD before.");
       break;
     default:
       break;

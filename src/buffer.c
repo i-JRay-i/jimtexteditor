@@ -1,15 +1,18 @@
 #include "buffer.h"
 
-static void bufferCopyERow (const ERow *src, ERow *dst) {
-  dst->row_len = src->row_len;
-  dst->rndr_len = src->rndr_len;
-  dst->row_str = malloc(sizeof(char) * (src->row_len + 1));
-  dst->rndr_str = malloc(sizeof(char) * (src->rndr_len + 1));
-  dst->rndr_cls = NULL;
-  strcpy(dst->row_str, src->row_str);
-  strcpy(dst->rndr_str, src->rndr_str);
+// Copies a row to another one
+static void bufferCopyERow (const ERow *src_row, ERow *dst_row) {
+  dst_row->row_len = src_row->row_len;
+  dst_row->rndr_len = src_row->rndr_len;
+  dst_row->row_str = malloc(sizeof(char) * (src_row->row_len + 1));
+  dst_row->rndr_str = malloc(sizeof(char) * (src_row->rndr_len + 1));
+
+  strcpy(dst_row->row_str, src_row->row_str);
+  strcpy(dst_row->rndr_str, src_row->rndr_str);
+  dst_row->rndr_cls = NULL;
 }
 
+// Frees up the editor clipboard
 void bufferFreeEClip (void) {
   if (!E.eclip || !E.eclip->eclip_buff)
     return;
