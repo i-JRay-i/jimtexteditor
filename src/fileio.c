@@ -12,8 +12,8 @@ void erowRender (ERow * erow) {
   }
 
   free(erow->rndr_str);
-  erow->rndr_str = malloc(erow->row_len + num_tabs*(TAB_SIZE - 1) + 1);
-  erow->rndr_cls = malloc(erow->row_len + num_tabs*(TAB_SIZE - 1) + 1);
+  erow->rndr_str = malloc(erow->row_len + num_tabs*(TAB_SIZE-1) + 1);
+  erow->rndr_cls = malloc(erow->row_len + num_tabs*(TAB_SIZE-1) + 1);
 
   int rndr_idx = 0;
   for (int row_idx=0; row_idx<erow->row_len; row_idx++) {
@@ -156,7 +156,7 @@ char * newsavePrompt (void) {
       input[input_len] = '\0';
     }
     appendMessageString(input, input_len);
-    refreshScreen();
+    editorRefreshScreen();
   }
 }
 

@@ -27,8 +27,8 @@ The goal is not a complete feature parity, nor the exact same behavior. There wi
 - Delete action ({w,b,e} for deleting one word, {W,B,E} for deleting one WORD, deleting one line with {d}, {0} to delete everything in line before cursor, {$} to delete everything in line after cursor)
 - Arrow keys to move inside the editor in INSERT mode
 - Status and message bars
-- string search functionality (Enter search prompt with /, scroll through the document with n and N keys)
-- undo and redo commands, u for undo and Ctrl+r for redo
+- string search functionality (Enter search prompt with {/}, scroll through the document with {n} and {N} keys)
+- undo and redo commands, {u} for undo and {Ctrl+r} for redo
 
 ## Features planned
 

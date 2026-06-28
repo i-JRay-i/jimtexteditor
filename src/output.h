@@ -11,6 +11,6 @@ typedef struct output_buffer{
   long size;
 } OBuf;
 
-void refreshScreen(void);
+void editorRefreshScreen(void);
 
 #endif // JIM_OUTPUT_H

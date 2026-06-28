@@ -5,14 +5,14 @@
 EConf E;
 
 int main(int argc, char *argv[]) {
-  initEditor();
+  editorInitEditor();
   if (argc > 1) {
     openFile(argv[1]);
   }
   setMessage(HELP_MSG);
   while (1) {
-    refreshScreen();
-    processKey();
+    editorRefreshScreen();
+    editorProcessKey();
   }
   return 0;
 }

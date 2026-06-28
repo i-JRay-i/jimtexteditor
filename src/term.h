@@ -49,6 +49,7 @@ typedef enum editor_key {
   EOL_KEY,
   INIT_LINE_KEY,
   NORMAL_KEY,
+  VISUAL_KEY,
   INSERT_KEY,
   INSERT_NEXT_KEY,
   INSERT_LINE_NEXT,
@@ -58,6 +59,7 @@ typedef enum editor_key {
   SEARCH_KEY,
   SEARCH_FORWARD,
   SEARCH_BACKWARD,
+  COPY_KEY,
   UNDO_KEY,
   REDO_KEY,
   DELETE_KEY,
@@ -108,14 +110,20 @@ typedef struct editor_search_string {
 } ESrch;
 
 /* Buffer for saving the history of the file between mode switches and cursor movements */
-typedef struct editor_text_buffer {
-  size_t buff_len; // Number of ERow buffers filled
-  size_t buff_idx; // Index of the current buffer
-  ERow **erow_buff; // Array of ERow arrays (HIST_BUFF_STACK_SIZE * num_row[idx])
-  int *crsr_x_buff;
-  int *crsr_y_buff;
-  int *num_row_buff;
-} EBuffer;
+typedef struct editor_history_buffer {
+  size_t hbuff_len; // Number of ERow buffers filled
+  size_t hbuff_idx; // Index of the current buffer
+  ERow **erow_hbuff; // Array of ERow arrays (HIST_BUFF_STACK_SIZE * num_row[idx])
+  int *crsr_x_hbuff;
+  int *crsr_y_hbuff;
+  int *num_row_hbuff;
+} EHBuff;
+
+/* Editor clipboard that keeps copied objects*/
+typedef struct editor_clipboard {
+  int num_row_eclip;
+  ERow **eclip_buff;
+} EClip;
 
 /* Configuration variables for the editor */
 typedef struct editor_config {
@@ -127,7 +135,8 @@ typedef struct editor_config {
   int num_row; // The total number of rows in the open file
   int dirt_flag_pos, dirt_flag_neg; // Dirt flags to record bytes added/removed
   ERow *erow; // An array of ERow struct
-  EBuffer *ebuff; // Buffer struct for the editor history
+  EHBuff *ebuff; // Buffer struct for the editor history for undo-redo
+  EClip *eclip; // Clipboard buffer struct for copy-paste
   EMode emode; // Editor mode
   EStat estat; // Editor status bar object
   EMsg emsg; // Editor message bar object
@@ -142,12 +151,12 @@ extern EConf E;
 void die (const char*);
 int readKey (void);
 void printKey (void);
-void processKey (void);
+void editorProcessKey (void);
 void editorScroll (void);
-void refreshScreen (void);
-void initEditor (void);
-void freeEditor (void);
-void exitEditor (void);
+void editorRefreshScreen (void);
+void editorInitEditor (void);
+void editorFreeEditor (void);
+void editorExitEditor (void);
 void disableRawMode (void);
 void appendStatusString (char *, unsigned int);
 void appendMessageString (char *, unsigned int);
@@ -160,9 +169,12 @@ void setMessage (const char *, ...);
 void findQuery (void);
 void searchQuery (void);
 void searchPrompt (void);
-void deleteAction (void);
+void actionDelete (void);
+void actionCopy (void);
 void bufferSaveEditorState (void);
 void bufferEditorUndo (void);
 void bufferEditorRedo (void);
+void bufferCopyEClip (void);
+void bufferPasteEClip (void);
 
 #endif // JIM_TERM_H

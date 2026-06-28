@@ -4,17 +4,17 @@
 
 struct termios term_conf_def;
 
-void die(const char* err_msg) {
+void die (const char* err_msg) {
   write(STDOUT_FILENO, "\x1b[2J", 4);
   write(STDOUT_FILENO, "\x1b[H", 3);
 
   perror(err_msg);
   disableRawMode();
-  freeEditor();
+  editorFreeEditor();
   exit(1);
 }
 
-int getCursorPosition(int *rows, int *cols) { // Fallback mechanism to read the cursor crsr_position
+int getCursorPosition (int *rows, int *cols) { // Fallback mechanism to read the cursor crsr_position
   char str_crsr[32];
   unsigned int i_str = 0;
   if (write(STDOUT_FILENO, "\x1b[6n", 4) != 4)
@@ -36,7 +36,7 @@ int getCursorPosition(int *rows, int *cols) { // Fallback mechanism to read the 
   return 0;
 }
 
-int getWindowSize(int *rows, int *cols) {
+int getWindowSize (int *rows, int *cols) {
   struct winsize term_size;
   if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &term_size) == -1 || term_size.ws_col == 0) {
     if (write(STDOUT_FILENO, "\x1b[999C\x1b[999B", 12) != 12)
@@ -49,7 +49,7 @@ int getWindowSize(int *rows, int *cols) {
   }
 }
 
-void moveCursor(int key) {
+void moveCursor (int key) {
   ERow *erow = (E.crsr_y < E.num_row) ? &E.erow[E.crsr_y] : NULL;
   switch (key) {
     case MOVE_LEFT:
@@ -247,7 +247,7 @@ void moveCursor(int key) {
   }
 }
 
-void moveCursorCommand(int key) {
+void moveCursorCommand (int key) {
   switch (key) {
     case MOVE_LEFT:
       if (E.crsr_cmd_x > 0)
@@ -260,7 +260,7 @@ void moveCursorCommand(int key) {
   }
 }
 
-int readKey(void) {
+int readKey (void) {
   int key = 0;
   if ((read(STDIN_FILENO, &key, 1)) == -1)
     die("read");
@@ -268,13 +268,13 @@ int readKey(void) {
 }
 
 /* Used for debugging */
-void printKey(void) {
+void printKey (void) {
   int key = readKey();
   printf("%d ('%c')\r\n", key, key);
   write(STDOUT_FILENO, &key, 1);
 }
 
-int mapKeyNormal(int key) {
+int mapKeyNormal (int key) {
   switch (key){
     case CTRL_KEY('q'): return EXIT_KEY;
     case 'h': return MOVE_LEFT;
@@ -294,6 +294,7 @@ int mapKeyNormal(int key) {
     case 'a': return INSERT_NEXT_KEY;
     case 'o': return INSERT_LINE_NEXT;
     case 'O': return INSERT_LINE_PREV;
+    case 'v': return VISUAL_KEY;
     case ':': return COMMAND_KEY;
     case CTRL_KEY('u'): return HALF_PAGE_UP;
     case CTRL_KEY('d'): return HALF_PAGE_DOWN;
@@ -301,16 +302,17 @@ int mapKeyNormal(int key) {
     case 'n': return SEARCH_FORWARD;
     case 'N': return SEARCH_BACKWARD;
     case 'd': return DELETE_KEY;
+    case 'y': return COPY_KEY;
     case 'u': return UNDO_KEY;
     case CTRL_KEY('r'): return REDO_KEY;
     default: return key;
   }
 }
 
-void processNormal(int key) {
+void processNormal (int key) {
    switch (key) {
     case EXIT_KEY:
-      exitEditor();
+      editorExitEditor();
       break;
     case INSERT_KEY:
       E.emode = MODE_INSERT;
@@ -344,6 +346,8 @@ void processNormal(int key) {
     case COMMAND_KEY:
       E.emode = MODE_COMMAND;
       break;
+    case VISUAL_KEY:
+      break;
     case SEARCH_KEY:
       E.emode = MODE_COMMAND;
       searchPrompt();
@@ -361,7 +365,10 @@ void processNormal(int key) {
       searchQuery();
       break;
     case DELETE_KEY:
-      deleteAction();
+      actionDelete();
+      break;
+    case COPY_KEY:
+      actionCopy();
       break;
     case UNDO_KEY:
       bufferEditorUndo();
@@ -422,7 +429,7 @@ int mapKeyInsert (int key) {
 void processInsert (int key) {
    switch (key) {
     case EXIT_KEY:
-      exitEditor();
+      editorExitEditor();
       break;
     case NORMAL_KEY:
       E.emode = MODE_NORMAL;
@@ -453,7 +460,7 @@ void processInsert (int key) {
   }
 }
 
-int mapKeyCommand(int key) {
+int mapKeyCommand (int key) {
   switch (key){
     case '\x1b': 
       {
@@ -478,20 +485,20 @@ int mapKeyCommand(int key) {
   }
 }
 
-void enterCommand(void) {
+void enterCommand (void) {
   if (!strcmp(E.cmd.cmd_str, "q")) {
     if ((E.dirt_flag_pos || E.dirt_flag_neg)) {
       setMessage("Warning: File has unsaved changes.");
       return;
     }
-    exitEditor();
+    editorExitEditor();
   } else if (!strcmp(E.cmd.cmd_str, "w")) {
     saveFile();
   } else if (!strcmp(E.cmd.cmd_str, "wq")) {
     saveFile();
-    exitEditor();
+    editorExitEditor();
   } else if (!strcmp(E.cmd.cmd_str, "q!")) {
-    exitEditor();
+    editorExitEditor();
   } else if (!strcmp(E.cmd.cmd_str, "help")) {
     setMessage(HELP_MSG);
   } else if (E.cmd.cmd_str[0] == '!') {
@@ -575,7 +582,7 @@ void findQuery (void) {
   }
 }
 
-void searchQuery(void) {
+void searchQuery (void) {
   E.crsr_x = E.srch.srch_match_x[E.srch.srch_match_idx];
   E.crsr_y = E.srch.srch_match_y[E.srch.srch_match_idx];
 }
@@ -615,7 +622,7 @@ void processSearch (int key) {
   }
 }
 
-void searchPrompt(void) {
+void searchPrompt (void) {
   E.srch.srch_size = 512;
   E.srch.srch_str = realloc(E.srch.srch_str, E.srch.srch_size);
   E.srch.srch_str[0] = '\0';
@@ -637,15 +644,33 @@ void searchPrompt(void) {
 
     appendMessageString("/", 1);
     appendMessageString(E.srch.srch_str, E.srch.srch_len);
-    refreshScreen();
+    editorRefreshScreen();
   }
 }
 
-void processDelete(void) {
+void processCopy (void) {
   int key = readKey();
   while (key == 0) {
     key = readKey();
   }
+
+  //int curr_x = E.crsr_x;
+  //int curr_y = E.crsr_y;
+  switch (key) {
+    case 'y':
+      break;
+    default: 
+      break;
+  }
+  return;
+}
+
+void processDelete (void) {
+  int key = readKey();
+  while (key == 0) {
+    key = readKey();
+  }
+
   int curr_x = E.crsr_x;
   int curr_y = E.crsr_y;
   switch (key) {
@@ -767,14 +792,21 @@ void processDelete(void) {
   return;
 }
 
-void deleteAction(void) {
+void actionCopy (void) {
+  write(STDOUT_FILENO, "\x1b[3 q", 5);
+  processCopy();
+  write(STDOUT_FILENO, "\x1b[2 q", 5);
+  return;
+}
+
+void actionDelete (void) {
   write(STDOUT_FILENO, "\x1b[3 q", 5);
   processDelete();
   write(STDOUT_FILENO, "\x1b[2 q", 5);
   return;
 }
 
-void commandPrompt(void) {
+void commandPrompt (void) {
   while (1) {
     int key = readKey();
     key = mapKeyCommand(key);
@@ -784,11 +816,15 @@ void commandPrompt(void) {
 
     appendMessageString(":", 1);
     appendMessageString(E.cmd.cmd_str, E.cmd.cmd_len);
-    refreshScreen();
+    editorRefreshScreen();
   }
 }
 
-void processKey(void) {
+void visionPrompt (void) {
+  return;
+}
+
+void editorProcessKey (void) {
   int key = readKey();
   if (E.emode == MODE_NORMAL) {
     key = mapKeyNormal(key);
@@ -805,7 +841,7 @@ void processKey(void) {
   }
 }
 
-void appendStatusString(char *str, unsigned int str_len) {
+void appendStatusString (char *str, unsigned int str_len) {
   if (E.estat.stat_len + str_len > E.estat.stat_size) {
     E.estat.stat_size += 512;
     E.estat.stat_str = realloc(E.estat.stat_str, E.estat.stat_size);
@@ -816,7 +852,7 @@ void appendStatusString(char *str, unsigned int str_len) {
   E.estat.stat_len = strlen(E.estat.stat_str);
 }
 
-void appendMessageString(char *str, unsigned int str_len) {
+void appendMessageString (char *str, unsigned int str_len) {
   if (E.emsg.msg_len + str_len > E.emsg.msg_size) {
     E.emsg.msg_size += 512;
     E.emsg.msg_str = realloc(E.emsg.msg_str, E.emsg.msg_size);
@@ -827,7 +863,7 @@ void appendMessageString(char *str, unsigned int str_len) {
   E.emsg.msg_len = strlen(E.emsg.msg_str);
 }
 
-void setMessage(const char *fmt, ...) {
+void setMessage (const char *fmt, ...) {
   char msg_buf[256];
   va_list ap;
   va_start(ap, fmt);
@@ -838,13 +874,13 @@ void setMessage(const char *fmt, ...) {
 }
 
 /* Retrieving the terminal back to the default configuration */
-void disableRawMode(void) {
+void disableRawMode (void) {
   if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &term_conf_def) == -1)
     die("tcsetattr");
 }
 
 /* Changing the terminal to the "raw" mode. */
-void enableRawMode(void) {
+void enableRawMode (void) {
   if (tcgetattr(STDIN_FILENO, &term_conf_def) == -1)
     die("tcgetattr");  
 
@@ -863,7 +899,7 @@ void enableRawMode(void) {
 }
 
 /* Initializing the Editor object. */
-void initEditor (void) {
+void editorInitEditor (void) {
   enableRawMode();
   getWindowSize(&E.term_height, &E.term_width);
 
@@ -879,18 +915,18 @@ void initEditor (void) {
   E.num_row = 0;
 
   // Setting up the history buffer 
-  E.ebuff = malloc(sizeof(EBuffer));
-  E.ebuff->buff_len = 0;
-  E.ebuff->buff_idx = 0;
-  E.ebuff->erow_buff = malloc(sizeof(ERow *) * HIST_BUFF_STACK_SIZE);
-  E.ebuff->crsr_x_buff = malloc(sizeof(int) * HIST_BUFF_STACK_SIZE);
-  E.ebuff->crsr_y_buff = malloc(sizeof(int) * HIST_BUFF_STACK_SIZE);
-  E.ebuff->num_row_buff = malloc(sizeof(int) * HIST_BUFF_STACK_SIZE);
+  E.ebuff = malloc(sizeof(EHBuff));
+  E.ebuff->hbuff_len = 0;
+  E.ebuff->hbuff_idx = 0;
+  E.ebuff->erow_hbuff = malloc(sizeof(ERow *) * HIST_BUFF_STACK_SIZE);
+  E.ebuff->crsr_x_hbuff = malloc(sizeof(int) * HIST_BUFF_STACK_SIZE);
+  E.ebuff->crsr_y_hbuff = malloc(sizeof(int) * HIST_BUFF_STACK_SIZE);
+  E.ebuff->num_row_hbuff = malloc(sizeof(int) * HIST_BUFF_STACK_SIZE);
   for (int idx = 0; idx < HIST_BUFF_STACK_SIZE; idx++) {
-    E.ebuff->crsr_x_buff[idx] = 0;
-    E.ebuff->crsr_y_buff[idx] = 0;
-    E.ebuff->num_row_buff[idx] = 0;
-    E.ebuff->erow_buff[idx] = NULL;
+    E.ebuff->crsr_x_hbuff[idx] = 0;
+    E.ebuff->crsr_y_hbuff[idx] = 0;
+    E.ebuff->num_row_hbuff[idx] = 0;
+    E.ebuff->erow_hbuff[idx] = NULL;
   }
 
   // Initializing the status message buffer
@@ -922,11 +958,16 @@ void initEditor (void) {
   E.srch.srch_match_x = NULL;
   E.srch.srch_match_y = NULL;
 
+  // Initializing the clipboard buffer
+  E.eclip = malloc(sizeof(EClip));
+  E.eclip->num_row_eclip = 0;
+  E.eclip->eclip_buff = NULL;
+
   E.filename = NULL;
 }
 
 /* Frees up the memory allocated for the Editor object before shutting down. */
-void freeEditor (void) {
+void editorFreeEditor (void) {
   for (int row_idx = 0; row_idx < E.num_row; row_idx++) {
     E.erow[row_idx].row_len = 0;
     E.erow[row_idx].rndr_len = 0;
@@ -937,30 +978,34 @@ void freeEditor (void) {
   E.num_row = 0;
 
   // Freeing up the whole editor history buffer.
-  for (int buff_idx = 0; buff_idx < (int) E.ebuff->buff_len; buff_idx++) {
-    for (int erow_idx = 0; erow_idx < E.ebuff->num_row_buff[buff_idx]; erow_idx++) {
-      E.ebuff->erow_buff[buff_idx][erow_idx].row_len = 0;
-      E.ebuff->erow_buff[buff_idx][erow_idx].rndr_len = 0;
-      free(E.ebuff->erow_buff[buff_idx][erow_idx].row_str);
-      free(E.ebuff->erow_buff[buff_idx][erow_idx].rndr_str);
+  for (int buff_idx = 0; buff_idx < (int) E.ebuff->hbuff_len; buff_idx++) {
+    for (int erow_idx = 0; erow_idx < E.ebuff->num_row_hbuff[buff_idx]; erow_idx++) {
+      E.ebuff->erow_hbuff[buff_idx][erow_idx].row_len = 0;
+      E.ebuff->erow_hbuff[buff_idx][erow_idx].rndr_len = 0;
+      free(E.ebuff->erow_hbuff[buff_idx][erow_idx].row_str);
+      free(E.ebuff->erow_hbuff[buff_idx][erow_idx].rndr_str);
       //free(E.ebuff->erow_buff[buff_idx][erow_idx].rndr_cls);
     }
-    E.ebuff->crsr_x_buff[buff_idx] = 0;
-    E.ebuff->crsr_y_buff[buff_idx] = 0;
-    E.ebuff->num_row_buff[buff_idx] = 0;
-    free(E.ebuff->erow_buff[buff_idx]);
+    E.ebuff->crsr_x_hbuff[buff_idx] = 0;
+    E.ebuff->crsr_y_hbuff[buff_idx] = 0;
+    E.ebuff->num_row_hbuff[buff_idx] = 0;
+    free(E.ebuff->erow_hbuff[buff_idx]);
   }
-  E.ebuff->buff_len = 0;
+  E.ebuff->hbuff_len = 0;
 
   // Freeing the rest of the EBuffer object
-  free(E.ebuff->erow_buff);
-  free(E.ebuff->crsr_x_buff);
-  free(E.ebuff->crsr_y_buff);
-  free(E.ebuff->num_row_buff);
+  free(E.ebuff->erow_hbuff);
+  free(E.ebuff->crsr_x_hbuff);
+  free(E.ebuff->crsr_y_hbuff);
+  free(E.ebuff->num_row_hbuff);
 
   E.estat.stat_len = 0;
   E.emsg.msg_len = 0;
   E.cmd.cmd_len = 0;
+
+  E.eclip->num_row_eclip = 0;
+  E.eclip->eclip_buff = NULL;
+  free(E.eclip);
 
   free(E.estat.stat_str);
   free(E.emsg.msg_str);
@@ -972,12 +1017,12 @@ void freeEditor (void) {
 }
 
 /* Cleaning up the memory and recovering the default terminal. */
-void exitEditor (void) {
+void editorExitEditor (void) {
   write(STDOUT_FILENO, "\x1b[2J", 4);
   write(STDOUT_FILENO, "\x1b[H", 3);
 
   disableRawMode();
-  freeEditor();
+  editorFreeEditor();
   exit(0);
 }
 

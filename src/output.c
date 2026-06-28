@@ -172,7 +172,7 @@ void setCursorPosition(void) {
   }
 }
 
-void refreshScreen(void) {
+void editorRefreshScreen(void) {
   bufInit(&ob);
 
   // Updating window size for every refresh
