@@ -1003,8 +1003,7 @@ void editorFreeEditor (void) {
   E.emsg.msg_len = 0;
   E.cmd.cmd_len = 0;
 
-  E.eclip->num_row_eclip = 0;
-  E.eclip->eclip_buff = NULL;
+  bufferFreeEClip();
   free(E.eclip);
 
   free(E.estat.stat_str);

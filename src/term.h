@@ -119,10 +119,10 @@ typedef struct editor_history_buffer {
   int *num_row_hbuff;
 } EHBuff;
 
-/* Editor clipboard that keeps copied objects*/
+/* Editor clipboard that keeps copied objects */
 typedef struct editor_clipboard {
   int num_row_eclip;
-  ERow **eclip_buff;
+  ERow *eclip_buff;
 } EClip;
 
 /* Configuration variables for the editor */
@@ -174,7 +174,8 @@ void actionCopy (void);
 void bufferSaveEditorState (void);
 void bufferEditorUndo (void);
 void bufferEditorRedo (void);
-void bufferCopyEClip (void);
+void bufferFreeEClip (void);
+void bufferCopyToEClip (int, int);
 void bufferPasteEClip (void);
 
 #endif // JIM_TERM_H

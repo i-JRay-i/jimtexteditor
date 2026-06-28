@@ -1,11 +1,42 @@
 #include "buffer.h"
 
-void bufferFreeEClip (void) {
-  return;
+static void bufferCopyERow (const ERow *src, ERow *dst) {
+  dst->row_len = src->row_len;
+  dst->rndr_len = src->rndr_len;
+  dst->row_str = malloc(sizeof(char) * (src->row_len + 1));
+  dst->rndr_str = malloc(sizeof(char) * (src->rndr_len + 1));
+  dst->rndr_cls = NULL;
+  strcpy(dst->row_str, src->row_str);
+  strcpy(dst->rndr_str, src->rndr_str);
 }
 
-void bufferCopyToEClip (void) {
-  return;
+void bufferFreeEClip (void) {
+  if (!E.eclip || !E.eclip->eclip_buff)
+    return;
+
+  for (int row_idx = 0; row_idx < E.eclip->num_row_eclip; row_idx++) {
+    free(E.eclip->eclip_buff[row_idx].row_str);
+    free(E.eclip->eclip_buff[row_idx].rndr_str);
+    E.eclip->eclip_buff[row_idx].row_len = 0;
+    E.eclip->eclip_buff[row_idx].rndr_len = 0;
+  }
+  free(E.eclip->eclip_buff);
+  E.eclip->eclip_buff = NULL;
+  E.eclip->num_row_eclip = 0;
+}
+
+void bufferCopyToEClip (int start_row, int end_row) {
+  if (start_row < 0 || end_row >= E.num_row || start_row > end_row)
+    return;
+
+  bufferFreeEClip();
+
+  int num_rows = end_row - start_row + 1;
+  E.eclip->num_row_eclip = num_rows;
+  E.eclip->eclip_buff = malloc(sizeof(ERow) * num_rows);
+
+  for (int row_idx = 0; row_idx < num_rows; row_idx++)
+    bufferCopyERow(&E.erow[start_row + row_idx], &E.eclip->eclip_buff[row_idx]);
 }
 
 void bufferPasteEClip (void) {
