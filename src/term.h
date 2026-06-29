@@ -12,7 +12,7 @@
 #include <time.h>
 
 #define HELP_MSG "HELP: :q = quit | :w = save | :q! = quit wout save | :help = print this message"
-#define JIM_VERSION "0.0.5"
+#define JIM_VERSION "0.0.6"
 #define TAB_SIZE 8
 #define MSG_TIME 3
 #define PAGE_SIZE 64
@@ -48,8 +48,8 @@ typedef enum editor_key {
   INIT_FILE_KEY,
   EOL_KEY,
   INIT_LINE_KEY,
-  NORMAL_KEY,
-  VISUAL_KEY,
+  NORMAL_MODE_KEY,
+  VISUAL_MODE_KEY,
   INSERT_KEY,
   INSERT_NEXT_KEY,
   INSERT_LINE_NEXT,
@@ -60,6 +60,8 @@ typedef enum editor_key {
   SEARCH_FORWARD,
   SEARCH_BACKWARD,
   COPY_KEY,
+  PASTE_KEY,
+  PASTE_AFTER_KEY,
   UNDO_KEY,
   REDO_KEY,
   DELETE_KEY,
@@ -119,10 +121,17 @@ typedef struct editor_history_buffer {
   int *num_row_hbuff;
 } EHBuff;
 
+typedef enum editor_clipboard_type {
+  CLIPBOARD_NONE,
+  CLIPBOARD_LINE,
+  CLIPBOARD_INLINE
+} EClipType;
+
 /* Editor clipboard that keeps copied objects */
 typedef struct editor_clipboard {
   int num_row_eclip;
   ERow *eclip_buff;
+  EClipType clip_type;
 } EClip;
 
 /* Configuration variables for the editor */
@@ -131,6 +140,7 @@ typedef struct editor_config {
   int crsr_x, crsr_y; // Cursor coordinates in the file
   int crsr_cmd_x, crsr_cmd_y; // Cursor coordinates in command mode
   int crsr_rndr_x, crsr_rndr_y; // Rendered cursor coordinates
+  int visual_anchor_x, visual_anchor_y; // Anchor position for visual mode
   int row_off, col_off; // Editor row and column offest
   int num_row; // The total number of rows in the open file
   int dirt_flag_pos, dirt_flag_neg; // Dirt flags to record bytes added/removed
@@ -171,11 +181,12 @@ void searchQuery (void);
 void searchPrompt (void);
 void actionDelete (void);
 void actionCopy (void);
+void actionPaste (void);
 void bufferSaveEditorState (void);
 void bufferEditorUndo (void);
 void bufferEditorRedo (void);
 void bufferFreeEClip (void);
-void bufferCopyToEClip (int, int);
+void bufferCopyToEClip (int, int, int, int);
 void bufferPasteEClip (void);
 
 #endif // JIM_TERM_H

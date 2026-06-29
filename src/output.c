@@ -41,6 +41,55 @@ void editorScroll() {
 }
 
 /* Draws the screen */
+static int visualSelectionContains(int row_idx, int col_idx) {
+  if (E.emode != MODE_VISUAL)
+    return 0;
+
+  int start_row = E.visual_anchor_y;
+  int end_row = E.crsr_y;
+  int start_col = E.visual_anchor_x;
+  int end_col = E.crsr_x;
+
+  if (start_row > end_row || (start_row == end_row && start_col > end_col)) {
+    int tmp_row = start_row;
+    int tmp_col = start_col;
+    start_row = end_row;
+    start_col = end_col;
+    end_row = tmp_row;
+    end_col = tmp_col;
+  }
+
+  if (start_row < 0)
+    start_row = 0;
+  if (end_row < 0)
+    end_row = 0;
+  if (start_row >= E.num_row)
+    start_row = (E.num_row > 0) ? E.num_row - 1 : 0;
+  if (end_row >= E.num_row)
+    end_row = (E.num_row > 0) ? E.num_row - 1 : 0;
+
+  if (start_col < 0)
+    start_col = 0;
+  if (end_col < 0)
+    end_col = 0;
+  if (E.num_row > 0) {
+    if (start_col > E.erow[start_row].row_len)
+      start_col = E.erow[start_row].row_len;
+    if (end_col > E.erow[end_row].row_len)
+      end_col = E.erow[end_row].row_len;
+  }
+
+  if (row_idx < start_row || row_idx > end_row)
+    return 0;
+  if (row_idx == start_row && row_idx == end_row)
+    return col_idx >= start_col && col_idx < end_col;
+  if (row_idx == start_row)
+    return col_idx >= start_col;
+  if (row_idx == end_row)
+    return col_idx < end_col;
+  return 1;
+}
+
 void drawEditorScreen(OBuf *ob) {
   for (int row = 0; row < E.term_height-2; row++) {
     int curr_row = row + E.row_off;
@@ -63,12 +112,27 @@ void drawEditorScreen(OBuf *ob) {
         bufAppend(ob, "~", 1);
       }
     } else { // If there is an ERow to print
-      int row_len = E.erow[curr_row].rndr_len - E.col_off;
-      if (row_len < 0)
-        row_len = 0;
-      if (row_len > E.term_width)
-        row_len = E.term_width;
-      bufAppend(ob, &E.erow[curr_row].rndr_str[E.col_off], row_len);
+      int display_col = 0;
+      for (int col_idx = E.col_off; col_idx < E.erow[curr_row].row_len && display_col < E.term_width; col_idx++) {
+        int is_selected = visualSelectionContains(curr_row, col_idx);
+        if (is_selected)
+          bufAppend(ob, "\x1b[7m", 4);
+
+        if (E.erow[curr_row].row_str[col_idx] == '\t') {
+          int tab_width = TAB_SIZE - (display_col % TAB_SIZE);
+          for (int tab_idx = 0; tab_idx < tab_width && display_col < E.term_width; tab_idx++) {
+            bufAppend(ob, " ", 1);
+            display_col++;
+          }
+        } else {
+          char ch[2] = { E.erow[curr_row].row_str[col_idx], '\0' };
+          bufAppend(ob, ch, 1);
+          display_col++;
+        }
+
+        if (is_selected)
+          bufAppend(ob, "\x1b[m", 3);
+      }
     }
     bufAppend(ob, "\x1b[K", 3);
     if (row < E.term_height - 2)
@@ -123,6 +187,8 @@ void setStatusString(void) {
     appendStatusString("INSERT", 6);
   } else if (E.emode == MODE_COMMAND) {
     appendStatusString("COMMAND", 7);
+  } else if (E.emode == MODE_VISUAL) {
+    appendStatusString("VISUAL", 6);
   }
 }
 

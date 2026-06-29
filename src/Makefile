@@ -1,32 +1,29 @@
-CC=gcc
-CFLAGS=-g3 -Wall -Wextra -pedantic -std=c17
+CC ?= gcc
+COMMON_CFLAGS := -Wall -Wextra -pedantic -std=c17
+DEBUG_CFLAGS := -g3 $(COMMON_CFLAGS)
+RELEASE_CFLAGS := -O2 $(COMMON_CFLAGS)
+CFLAGS ?= $(DEBUG_CFLAGS)
+
 all=term.o buffer.o fileio.o input.o output.o jim.o
 srcall = main.c term.c buffer.c fileio.c input.c output.c
 
 jim: $(all)
 	$(CC) $(CFLAGS) -o jim $(all)
 
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
 jim.o: main.c
-	$(CC) $(CFLAGS) -o jim.o -c main.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
-output.o: output.c output.h
-	$(CC) $(CFLAGS) -o output.o -c output.c
-
-input.o: input.c input.h
-	$(CC) $(CFLAGS) -o input.o -c input.c
-
-fileio.o: fileio.c fileio.h
-	$(CC) $(CFLAGS) -o fileio.o -c fileio.c
-
-buffer.o: buffer.c buffer.h
-	$(CC) $(CFLAGS) -o buffer.o -c buffer.c
-
-term.o: term.c term.h
-	$(CC) $(CFLAGS) -o term.o -c term.c
-
+.PHONY: clean touch release
 clean:
-	rm -f *.o
+	rm -f *.o jim
 
 touch:
 	touch $(srcall)
+
+release:
+	$(MAKE) clean
+	$(MAKE) CFLAGS="$(RELEASE_CFLAGS)" jim
 

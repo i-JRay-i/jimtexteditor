@@ -4,6 +4,35 @@
 
 struct termios term_conf_def;
 
+/* Helper functions for terminal mode logic and editor lifecycle */
+static void setInsertCursorStyle (void) {
+  write(STDOUT_FILENO, "\x1b[5 q", 5);
+  fflush(stdout);
+}
+
+static void setNormalCursorStyle (void) {
+  write(STDOUT_FILENO, "\x1b[2 q", 5);
+  fflush(stdout);
+}
+
+static void enterInsertMode (void) {
+  E.emode = MODE_INSERT;
+  setInsertCursorStyle();
+}
+
+static void leaveInsertMode (void) {
+  E.emode = MODE_NORMAL;
+  setNormalCursorStyle();
+  if (E.dirt_flag_pos || E.dirt_flag_neg)
+    bufferSaveEditorState();
+}
+
+static void enterVisualMode (void) {
+  E.visual_anchor_x = E.crsr_x;
+  E.visual_anchor_y = E.crsr_y;
+  E.emode = MODE_VISUAL;
+}
+
 void die (const char* err_msg) {
   write(STDOUT_FILENO, "\x1b[2J", 4);
   write(STDOUT_FILENO, "\x1b[H", 3);
@@ -14,7 +43,8 @@ void die (const char* err_msg) {
   exit(1);
 }
 
-int getCursorPosition (int *rows, int *cols) { // Fallback mechanism to read the cursor crsr_position
+/* Fallback mechanism to read the cursor crsr_position */
+int getCursorPosition (int *rows, int *cols) { 
   char str_crsr[32];
   unsigned int i_str = 0;
   if (write(STDOUT_FILENO, "\x1b[6n", 4) != 4)
@@ -49,6 +79,7 @@ int getWindowSize (int *rows, int *cols) {
   }
 }
 
+/* Cursor movement and navigation helpers */
 void moveCursor (int key) {
   ERow *erow = (E.crsr_y < E.num_row) ? &E.erow[E.crsr_y] : NULL;
   switch (key) {
@@ -294,7 +325,7 @@ int mapKeyNormal (int key) {
     case 'a': return INSERT_NEXT_KEY;
     case 'o': return INSERT_LINE_NEXT;
     case 'O': return INSERT_LINE_PREV;
-    case 'v': return VISUAL_KEY;
+    case 'v': return VISUAL_MODE_KEY;
     case ':': return COMMAND_KEY;
     case CTRL_KEY('u'): return HALF_PAGE_UP;
     case CTRL_KEY('d'): return HALF_PAGE_DOWN;
@@ -303,50 +334,46 @@ int mapKeyNormal (int key) {
     case 'N': return SEARCH_BACKWARD;
     case 'd': return DELETE_KEY;
     case 'y': return COPY_KEY;
+    case 'p': return PASTE_KEY;
+    case 'P': return PASTE_AFTER_KEY;
     case 'u': return UNDO_KEY;
     case CTRL_KEY('r'): return REDO_KEY;
     default: return key;
   }
 }
 
+/* Normal-mode key handling */
 void processNormal (int key) {
    switch (key) {
     case EXIT_KEY:
       editorExitEditor();
       break;
     case INSERT_KEY:
-      E.emode = MODE_INSERT;
-      write(STDOUT_FILENO, "\x1b[5 q", 5);
-      fflush(stdout);
+      enterInsertMode();
       break;
     case INSERT_NEXT_KEY:
       if (E.erow && E.crsr_x < E.erow[E.crsr_y].row_len)
         E.crsr_x++;
-      E.emode = MODE_INSERT;
-      write(STDOUT_FILENO, "\x1b[5 q", 5);
-      fflush(stdout);
+      enterInsertMode();
       break;
     case INSERT_LINE_PREV:
       E.crsr_x = 0;
       erowInsertRow();
       E.crsr_y--;
-      E.emode = MODE_INSERT;
-      write(STDOUT_FILENO, "\x1b[5 q", 5);
-      fflush(stdout);
+      enterInsertMode();
       break;
     case INSERT_LINE_NEXT:
       E.crsr_x = 0;
       E.crsr_y++;
       erowInsertRow();
       E.crsr_y--;
-      E.emode = MODE_INSERT;
-      write(STDOUT_FILENO, "\x1b[5 q", 5);
-      fflush(stdout);
+      enterInsertMode();
       break;
     case COMMAND_KEY:
       E.emode = MODE_COMMAND;
       break;
-    case VISUAL_KEY:
+    case VISUAL_MODE_KEY:
+      enterVisualMode();
       break;
     case SEARCH_KEY:
       E.emode = MODE_COMMAND;
@@ -366,9 +393,24 @@ void processNormal (int key) {
       break;
     case DELETE_KEY:
       actionDelete();
+      bufferSaveEditorState();
       break;
     case COPY_KEY:
       actionCopy();
+      break;
+    case PASTE_AFTER_KEY:
+      if (E.eclip && E.eclip->clip_type == CLIPBOARD_LINE) {
+        if (E.crsr_y < E.num_row)
+          E.crsr_y++;
+      } else {
+        moveCursor(MOVE_RIGHT);
+      }
+      actionPaste();
+      bufferSaveEditorState();
+      break;
+    case PASTE_KEY:
+      actionPaste();
+      bufferSaveEditorState();
       break;
     case UNDO_KEY:
       bufferEditorUndo();
@@ -402,11 +444,11 @@ int mapKeyInsert (int key) {
     case '\x1b': 
       {
         char escseq[8];
-        if (read(STDIN_FILENO, &escseq[0], 1) != 1) return NORMAL_KEY;
-        if (read(STDIN_FILENO, &escseq[1], 1) != 1) return NORMAL_KEY;
+        if (read(STDIN_FILENO, &escseq[0], 1) != 1) return NORMAL_MODE_KEY;
+        if (read(STDIN_FILENO, &escseq[1], 1) != 1) return NORMAL_MODE_KEY;
 
         if (escseq[0] == '[') {
-          if (read(STDIN_FILENO, &escseq[2], 1) != 1) return NORMAL_KEY;
+          if (read(STDIN_FILENO, &escseq[2], 1) != 1) return NORMAL_MODE_KEY;
           if (escseq[2] == '~') {
             switch (escseq[1]) {
               case '3': return ERASE_RIGHT_KEY;
@@ -420,22 +462,101 @@ int mapKeyInsert (int key) {
             }
           }
         }
-        return NORMAL_KEY;
+        return NORMAL_MODE_KEY;
       }
     default: return key;
   }
 }
 
+static void normalizeVisualSelection (int *row_start, int *row_end, int *col_start, int *col_end) {
+  int start_row = E.visual_anchor_y;
+  int end_row = E.crsr_y;
+  int start_col = E.visual_anchor_x;
+  int end_col = E.crsr_x;
+
+  if (start_row > end_row || (start_row == end_row && start_col > end_col)) {
+    int tmp_row = start_row;
+    int tmp_col = start_col;
+    start_row = end_row;
+    start_col = end_col;
+    end_row = tmp_row;
+    end_col = tmp_col;
+  }
+
+  if (start_row < 0)
+    start_row = 0;
+  if (end_row < 0)
+    end_row = 0;
+  if (start_row >= E.num_row)
+    start_row = (E.num_row > 0) ? E.num_row - 1 : 0;
+  if (end_row >= E.num_row)
+    end_row = (E.num_row > 0) ? E.num_row - 1 : 0;
+
+  if (start_col < 0)
+    start_col = 0;
+  if (end_col < 0)
+    end_col = 0;
+  if (E.num_row > 0) {
+    if (start_col > E.erow[start_row].row_len)
+      start_col = E.erow[start_row].row_len;
+    if (end_col > E.erow[end_row].row_len)
+      end_col = E.erow[end_row].row_len;
+  }
+
+  *row_start = start_row;
+  *row_end = end_row;
+  *col_start = start_col;
+  *col_end = end_col;
+}
+
+void processVisual (int key) {
+  switch (key) {
+    case NORMAL_MODE_KEY:
+    case VISUAL_MODE_KEY:
+    case '\x1b':
+      {
+        int row_start = 0, row_end = 0;
+        int col_start = 0, col_end = 0;
+        normalizeVisualSelection(&row_start, &row_end, &col_start, &col_end);
+      }
+      E.emode = MODE_NORMAL;
+      break;
+    case 'y':
+      {
+        int row_start = 0, row_end = 0;
+        int col_start = 0, col_end = 0;
+        normalizeVisualSelection(&row_start, &row_end, &col_start, &col_end);
+        bufferCopyToEClip(row_start, row_end, col_start, col_end);
+        E.emode = MODE_NORMAL;
+        setMessage("Yanked %d char(s).", (row_start == row_end) ? (col_end - col_start) : 0);
+      }
+      break;
+    case MOVE_LEFT:
+    case MOVE_DOWN:
+    case MOVE_UP:
+    case MOVE_RIGHT:
+    case MOVE_WORD_FORWARD:
+    case MOVE_WORD_FORWARD_END:
+    case MOVE_WORD_BACKWARD:
+    case MOVE_TOKEN_FORWARD:
+    case MOVE_TOKEN_FORWARD_END:
+    case MOVE_TOKEN_BACKWARD:
+    case EOF_KEY:
+      moveCursor(key);
+      break;
+    default:
+      break;
+  }
+}
+
+/* Insert-mode key handling */
 void processInsert (int key) {
    switch (key) {
     case EXIT_KEY:
       editorExitEditor();
       break;
-    case NORMAL_KEY:
-      E.emode = MODE_NORMAL;
-      write(STDOUT_FILENO, "\x1b[2 q", 5);
-      if (E.dirt_flag_pos || E.dirt_flag_neg)
-        bufferSaveEditorState();
+    case NORMAL_MODE_KEY:
+      leaveInsertMode();
       break;
     case NEWLINE_KEY:
       erowInsertRow();
@@ -466,9 +587,9 @@ int mapKeyCommand (int key) {
       {
       char esc_seq[6];
         if (read(STDIN_FILENO, &esc_seq[0], 1) != 1)
-          return NORMAL_KEY;
+          return NORMAL_MODE_KEY;
         if (read(STDIN_FILENO, &esc_seq[1], 1) != 1)
-          return NORMAL_KEY;
+          return NORMAL_MODE_KEY;
         if (esc_seq[0] == '[') {
           switch (esc_seq[1]) {
             case 'A': return MOVE_UP;
@@ -478,13 +599,14 @@ int mapKeyCommand (int key) {
           }
         }
       }
-      return NORMAL_KEY;
+      return NORMAL_MODE_KEY;
     case '\r': return ENTER_COMMAND_KEY;
     case 127: return ERASE_LEFT_KEY;
     default: return key;
   }
 }
 
+/* Command-mode and prompt handling */
 void enterCommand (void) {
   if (!strcmp(E.cmd.cmd_str, "q")) {
     if ((E.dirt_flag_pos || E.dirt_flag_neg)) {
@@ -519,7 +641,7 @@ void processCommand (int key) {
   switch (key) {
     case '\0':
       break;
-    case NORMAL_KEY:
+    case NORMAL_MODE_KEY:
       clearCommand();
       E.emode = MODE_NORMAL;
       break;
@@ -587,11 +709,12 @@ void searchQuery (void) {
   E.crsr_y = E.srch.srch_match_y[E.srch.srch_match_idx];
 }
 
+/* Search-mode and search prompt handling */
 void processSearch (int key) {
   switch (key) {
     case '\0':
       break;
-    case NORMAL_KEY:
+    case NORMAL_MODE_KEY:
       clearCommand();
       E.emode = MODE_NORMAL;
       break;
@@ -638,7 +761,7 @@ void searchPrompt (void) {
     key = mapKeyCommand(key);
     processSearch(key);
 
-    if ((key == ENTER_COMMAND_KEY) || (key == NORMAL_KEY)) {
+    if ((key == ENTER_COMMAND_KEY) || (key == NORMAL_MODE_KEY)) {
       break;
     }
 
@@ -648,26 +771,321 @@ void searchPrompt (void) {
   }
 }
 
+/* Copy, delete, and action helpers */
+/* Helpers for copy operations */
+static void copyLineSelection (int row_idx) {
+  if (row_idx < E.num_row) {
+    bufferCopyToEClip(row_idx, row_idx, 0, E.erow[row_idx].row_len);
+    setMessage("Yanked %d line(s).", E.eclip->num_row_eclip);
+  }
+}
+
+static void copyWordForward (int row_idx, int col_idx) {
+  if (row_idx < E.num_row) {
+    char *line = E.erow[row_idx].row_str;
+    int line_len = E.erow[row_idx].row_len;
+    int end = col_idx;
+
+    if (end < line_len) {
+      if (isalnum(line[end])) {
+        while (end < line_len && isalnum(line[end]))
+          end++;
+      } else {
+        while (end < line_len && !isalnum(line[end]))
+          end++;
+      }
+      while (end < line_len && line[end] == ' ')
+        end++;
+    }
+
+    if (end > col_idx) {
+      bufferCopyToEClip(row_idx, row_idx, col_idx, end);
+      setMessage("Yanked %d chars.", end - col_idx);
+    }
+  }
+}
+
+static void copyWordEnd (int row_idx, int col_idx) {
+  if (row_idx < E.num_row) {
+    char *line = E.erow[row_idx].row_str;
+    int line_len = E.erow[row_idx].row_len;
+    int end = col_idx;
+
+    if (end < line_len) {
+      if (line[end] == ' ') {
+        while (end < line_len && line[end] == ' ')
+          end++;
+      }
+      if (end < line_len) {
+        if (isalnum(line[end])) {
+          while (end < line_len && isalnum(line[end]))
+            end++;
+        } else {
+          while (end < line_len && !isalnum(line[end]) && line[end] != ' ')
+            end++;
+        }
+      }
+    }
+
+    if (end > col_idx) {
+      bufferCopyToEClip(row_idx, row_idx, col_idx, end);
+      setMessage("Yanked %d chars.", end - col_idx);
+    }
+  }
+}
+
+static void copyWordBackward (int row_idx, int col_idx) {
+  if (row_idx < E.num_row) {
+    char *line = E.erow[row_idx].row_str;
+    int start = col_idx;
+
+    if (start > 0) {
+      start--;
+      while (start > 0 && line[start] == ' ')
+        start--;
+
+      if (isalnum(line[start])) {
+        while (start > 0 && isalnum(line[start-1]))
+          start--;
+      } else {
+        while (start > 0 && !isalnum(line[start-1]) && line[start-1] != ' ')
+          start--;
+      }
+    }
+
+    if (start < col_idx) {
+      bufferCopyToEClip(row_idx, row_idx, start, col_idx);
+      setMessage("Yanked %d chars.", col_idx - start);
+    }
+  }
+}
+
+static void copyWORDForward (int row_idx, int col_idx) {
+  if (row_idx < E.num_row) {
+    char *line = E.erow[row_idx].row_str;
+    int line_len = E.erow[row_idx].row_len;
+    int end = col_idx;
+
+    if (end < line_len) {
+      while (end < line_len && line[end] != ' ')
+        end++;
+      while (end < line_len && line[end] == ' ')
+        end++;
+    }
+
+    if (end > col_idx) {
+      bufferCopyToEClip(row_idx, row_idx, col_idx, end);
+      setMessage("Yanked %d chars.", end - col_idx);
+    }
+  }
+}
+
+static void copyWORDEnd (int row_idx, int col_idx) {
+  if (row_idx < E.num_row) {
+    char *line = E.erow[row_idx].row_str;
+    int line_len = E.erow[row_idx].row_len;
+    int end = col_idx;
+
+    if (end < line_len) {
+      while (end < line_len && line[end] == ' ')
+        end++;
+      while (end < line_len && line[end] != ' ')
+        end++;
+    }
+
+    if (end > col_idx) {
+      bufferCopyToEClip(row_idx, row_idx, col_idx, end);
+      setMessage("Yanked %d chars.", end - col_idx);
+    }
+  }
+}
+
+static void copyWORDBackward (int row_idx, int col_idx) {
+  if (row_idx < E.num_row) {
+    char *line = E.erow[row_idx].row_str;
+    int start = col_idx;
+
+    if (start > 0) {
+      start--;
+      while (start > 0 && line[start] == ' ')
+        start--;
+      while (start > 0 && line[start-1] != ' ')
+        start--;
+    }
+
+    if (start < col_idx) {
+      bufferCopyToEClip(row_idx, row_idx, start, col_idx);
+      setMessage("Yanked %d chars.", col_idx - start);
+    }
+  }
+}
+
 void processCopy (void) {
   int key = readKey();
   while (key == 0) {
     key = readKey();
   }
 
+  int curr_x = E.crsr_x;
   int curr_y = E.crsr_y;
+
   switch (key) {
     case '\x1b':
       break;
     case 'y':
-      if (curr_y < E.num_row) {
-        bufferCopyToEClip(curr_y, curr_y);
-        setMessage("Yanked %d line(s).", E.eclip->num_row_eclip);
-      }
+      copyLineSelection(curr_y);
+      break;
+    case 'w':
+      copyWordForward(curr_y, curr_x);
+      break;
+    case 'e':
+      copyWordEnd(curr_y, curr_x);
+      break;
+    case 'b':
+      copyWordBackward(curr_y, curr_x);
+      break;
+    case 'W':
+      copyWORDForward(curr_y, curr_x);
+      break;
+    case 'E':
+      copyWORDEnd(curr_y, curr_x);
+      break;
+    case 'B':
+      copyWORDBackward(curr_y, curr_x);
       break;
     default:
       break;
   }
   return;
+}
+
+/* Helpers for delete operations */
+static void deleteLineSelection (int curr_x, int curr_y) {
+  E.crsr_x = E.erow[E.crsr_y].row_len;
+  while (curr_y == E.crsr_y) {
+    deleteChar();
+  }
+  E.crsr_x = curr_x; E.crsr_y = curr_y;
+  setMessage("Deleted 1 line");
+}
+
+static void deleteToLineStart (void) {
+  while (E.crsr_x > 0) {
+    deleteChar();
+  }
+  setMessage("Deleted everything before the cursor in the line.");
+}
+
+static void deleteToLineEnd (void) {
+  while (E.crsr_x < E.erow[E.crsr_y].row_len) {
+    deleteChar();
+    E.crsr_x++;
+  }
+  deleteChar();
+  setMessage("Deleted everything after the cursor in the line.");
+}
+
+static void deleteWordForward (void) {
+  if (isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
+    while (isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
+      E.crsr_x++;
+      deleteChar();
+    }
+  } else if (!isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
+    while (!isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
+      E.crsr_x++;
+      deleteChar();
+    }
+  }
+  while (E.erow[E.crsr_y].row_str[E.crsr_x] == ' ') {
+    E.crsr_x++;
+    deleteChar();
+  }
+  setMessage("Deleted 1 word.");
+}
+
+static void deleteWordEnd (void) {
+  while (E.erow[E.crsr_y].row_str[E.crsr_x] == ' ') {
+    E.crsr_x++;
+    deleteChar();
+  }
+  if (isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
+    while (isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
+      E.crsr_x++;
+      deleteChar();
+    }
+  } else if (!isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
+    while (!isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
+      E.crsr_x++;
+      deleteChar();
+    }
+  }
+  setMessage("Deleted 1 word.");
+}
+
+static void deleteWordBackward (void) {
+  if (E.crsr_x == 0 && E.crsr_y == 0)
+    return;
+  E.crsr_x--;
+  while (E.erow[E.crsr_y].row_str[E.crsr_x] == ' ') {
+    E.crsr_x++;
+    deleteChar();
+    E.crsr_x--;
+  }
+  if (isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
+    while (isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
+      E.crsr_x++;
+      deleteChar();
+      E.crsr_x--;
+    }
+  } else if (!isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
+    while (!isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
+      E.crsr_x++;
+      deleteChar();
+      E.crsr_x--;
+    }
+  }
+  E.crsr_x++;
+  setMessage("Deleted 1 word before.");
+}
+
+static void deleteWORDForward (void) {
+  while (E.erow[E.crsr_y].row_str[E.crsr_x] != ' ' && E.erow[E.crsr_y].row_str[E.crsr_x] != '\0') {
+    E.crsr_x++;
+    deleteChar();
+  } while (E.erow[E.crsr_y].row_str[E.crsr_x] == ' ') {
+    E.crsr_x++;
+    deleteChar();
+  }
+  setMessage("Deleted 1 WORD.");
+}
+
+static void deleteWORDEnd (void) {
+  while (E.erow[E.crsr_y].row_str[E.crsr_x] == ' ') {
+    E.crsr_x++;
+    deleteChar();
+  } while (E.erow[E.crsr_y].row_str[E.crsr_x] != ' '&& E.erow[E.crsr_y].row_str[E.crsr_x] != '\0') {
+    E.crsr_x++;
+    deleteChar();
+  }
+  setMessage("Deleted 1 WORD.");
+}
+
+static void deleteWORDBackward (void) {
+  if (E.crsr_x == 0 && E.crsr_y == 0)
+    return;
+  E.crsr_x--;
+  while (E.erow[E.crsr_y].row_str[E.crsr_x] == ' ') {
+    E.crsr_x++;
+    deleteChar();
+    E.crsr_x--;
+  } while (E.erow[E.crsr_y].row_str[E.crsr_x] != ' ' && E.erow[E.crsr_y].row_str[E.crsr_x] != '\0') {
+    E.crsr_x++;
+    deleteChar();
+    E.crsr_x--;
+  }
+  E.crsr_x++;
+  setMessage("Deleted 1 WORD before.");
 }
 
 void processDelete (void) {
@@ -682,123 +1100,31 @@ void processDelete (void) {
     case '\x1b': 
       break;
     case 'd':
-      E.crsr_x = E.erow[E.crsr_y].row_len;
-      while (curr_y == E.crsr_y) {
-        deleteChar();
-      }
-      E.crsr_x = curr_x; E.crsr_y = curr_y;
-      setMessage("Deleted 1 line");
+      deleteLineSelection(curr_x, curr_y);
       break;
     case '0':
-      while (E.crsr_x > 0) {
-        deleteChar();
-      }
-      setMessage("Deleted everything before the cursor in the line.");
+      deleteToLineStart();
       break;
     case '$':
-      while (E.crsr_x < E.erow[E.crsr_y].row_len) {
-        deleteChar();
-        E.crsr_x++;
-      }
-      deleteChar();
-      setMessage("Deleted everything after the cursor in the line.");
+      deleteToLineEnd();
       break;
     case 'w':
-      if (isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
-        while (isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
-          E.crsr_x++;
-          deleteChar();
-        }
-      } else if (!isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
-        while (!isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
-          E.crsr_x++;
-          deleteChar();
-        }
-      } 
-      while (E.erow[E.crsr_y].row_str[E.crsr_x] == ' ') {
-        E.crsr_x++;
-        deleteChar();
-      }
-      setMessage("Deleted 1 word.");
+      deleteWordForward();
       break;
     case 'e':
-      while (E.erow[E.crsr_y].row_str[E.crsr_x] == ' ') {
-        E.crsr_x++;
-        deleteChar();
-      }
-      if (isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
-        while (isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
-          E.crsr_x++;
-          deleteChar();
-        }
-      } else if (!isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
-        while (!isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
-          E.crsr_x++;
-          deleteChar();
-        }
-      }
-      setMessage("Deleted 1 word.");
+      deleteWordEnd();
       break;
     case 'b':
-      if (E.crsr_x == 0 && E.crsr_y == 0)
-        break;
-      E.crsr_x--;
-      while (E.erow[E.crsr_y].row_str[E.crsr_x] == ' ') {
-        E.crsr_x++;
-        deleteChar();
-        E.crsr_x--;
-      }
-      if (isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
-        while (isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
-          E.crsr_x++;
-          deleteChar();
-          E.crsr_x--;
-        }
-      } else if (!isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
-        while (!isalnum(E.erow[E.crsr_y].row_str[E.crsr_x])) {
-          E.crsr_x++;
-          deleteChar();
-          E.crsr_x--;
-        }
-      }
-      E.crsr_x++;
-      setMessage("Deleted 1 word before.");
+      deleteWordBackward();
       break;
     case 'W':
-      while (E.erow[E.crsr_y].row_str[E.crsr_x] != ' ' && E.erow[E.crsr_y].row_str[E.crsr_x] != '\0') {
-        E.crsr_x++;
-        deleteChar();
-      } while (E.erow[E.crsr_y].row_str[E.crsr_x] == ' ') {
-        E.crsr_x++;
-        deleteChar();
-      }
-      setMessage("Deleted 1 WORD.");
+      deleteWORDForward();
       break;
     case 'E':
-      while (E.erow[E.crsr_y].row_str[E.crsr_x] == ' ') {
-        E.crsr_x++;
-        deleteChar();
-      } while (E.erow[E.crsr_y].row_str[E.crsr_x] != ' '&& E.erow[E.crsr_y].row_str[E.crsr_x] != '\0') {
-        E.crsr_x++;
-        deleteChar();
-      }
-      setMessage("Deleted 1 WORD.");
+      deleteWORDEnd();
       break;
     case 'B':
-      if (E.crsr_x == 0 && E.crsr_y == 0)
-        break;
-      E.crsr_x--;
-      while (E.erow[E.crsr_y].row_str[E.crsr_x] == ' ') {
-        E.crsr_x++;
-        deleteChar();
-        E.crsr_x--;
-      } while (E.erow[E.crsr_y].row_str[E.crsr_x] != ' ' && E.erow[E.crsr_y].row_str[E.crsr_x] != '\0') {
-        E.crsr_x++;
-        deleteChar();
-        E.crsr_x--;
-      }
-      E.crsr_x++;
-      setMessage("Deleted 1 WORD before.");
+      deleteWORDBackward();
       break;
     default:
       break;
@@ -806,10 +1132,24 @@ void processDelete (void) {
   return;
 }
 
+/* Action wrappers for editor commands */
 void actionCopy (void) {
   write(STDOUT_FILENO, "\x1b[3 q", 5);
   processCopy();
   write(STDOUT_FILENO, "\x1b[2 q", 5);
+  return;
+}
+
+void actionPaste (void) {
+  write(STDOUT_FILENO, "\x1b[3 q", 5);
+  if (!E.eclip || E.eclip->num_row_eclip == 0) {
+    write(STDOUT_FILENO, "\x1b[2 q", 5);
+    setMessage("Clipboard empty.");
+    return;
+  }
+  bufferPasteEClip();
+  write(STDOUT_FILENO, "\x1b[2 q", 5);
+  setMessage("Pasted %d line(s).", E.eclip->num_row_eclip);
   return;
 }
 
@@ -825,7 +1165,7 @@ void commandPrompt (void) {
     int key = readKey();
     key = mapKeyCommand(key);
     processCommand(key);
-    if ((key == ENTER_COMMAND_KEY) || (key == NORMAL_KEY))
+    if ((key == ENTER_COMMAND_KEY) || (key == NORMAL_MODE_KEY))
       break;
 
     appendMessageString(":", 1);
@@ -849,12 +1189,14 @@ void editorProcessKey (void) {
   } else if (E.emode == MODE_COMMAND) {
     commandPrompt();
   } else if (E.emode == MODE_VISUAL) {
-    return;
+    key = mapKeyNormal(key);
+    processVisual(key);
   } else {
     return;
   }
 }
 
+/* Status/message buffers and editor state helpers */
 void appendStatusString (char *str, unsigned int str_len) {
   if (E.estat.stat_len + str_len > E.estat.stat_size) {
     E.estat.stat_size += 512;
@@ -920,6 +1262,7 @@ void editorInitEditor (void) {
   E.crsr_x = 0; E.crsr_y = 0;
   E.crsr_cmd_x = 0; E.crsr_cmd_y = 0;
   E.crsr_rndr_x = 0; E.crsr_rndr_y = 0;
+  E.visual_anchor_x = 0; E.visual_anchor_y = 0;
   E.row_off = 0; E.col_off = 0;
   E.dirt_flag_pos = 0; E.dirt_flag_neg = 0;
   E.emode = MODE_NORMAL;
@@ -976,6 +1319,7 @@ void editorInitEditor (void) {
   E.eclip = malloc(sizeof(EClip));
   E.eclip->num_row_eclip = 0;
   E.eclip->eclip_buff = NULL;
+  E.eclip->clip_type = CLIPBOARD_NONE;
 
   E.filename = NULL;
 }

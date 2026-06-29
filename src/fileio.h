@@ -13,6 +13,7 @@ void openFile(char *);
 void erowAppend(int, char *, size_t);
 void erowAppendString(ERow *, char *, size_t);
 void erowInsertChar(ERow *, int, int);
+void erowInsertString(ERow *, int, char *, size_t);
 void erowDeleteChar(ERow *, int);
 void erowDeleteRow(int);
 

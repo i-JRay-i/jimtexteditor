@@ -1,18 +1,44 @@
 #include "buffer.h"
+#include "fileio.h"
 
-// Copies a row to another one
-static void bufferCopyERow (const ERow *src_row, ERow *dst_row) {
-  dst_row->row_len = src_row->row_len;
-  dst_row->rndr_len = src_row->rndr_len;
-  dst_row->row_str = malloc(sizeof(char) * (src_row->row_len + 1));
-  dst_row->rndr_str = malloc(sizeof(char) * (src_row->rndr_len + 1));
+/* Helper ERow functionalities */
+/* Copies the content of an ERow struct to another one */
+static void bufferCopyERow (const ERow *src_row, ERow *dst_row, int col_start, int col_end) {
+  if (!src_row || !dst_row)
+    return;
 
-  strcpy(dst_row->row_str, src_row->row_str);
-  strcpy(dst_row->rndr_str, src_row->rndr_str);
+  if (col_start < 0) col_start = 0;
+  if (col_end < col_start) col_end = col_start;
+  if (col_end > src_row->row_len) col_end = src_row->row_len;
+
+  int copy_len = col_end - col_start;
+  dst_row->row_len = copy_len;
+  dst_row->row_str = malloc(sizeof(char) * (copy_len + 1));
+  if (copy_len > 0)
+    memcpy(dst_row->row_str, src_row->row_str + col_start, copy_len);
+  dst_row->row_str[copy_len] = '\0';
+
+  dst_row->rndr_str = NULL;
+  dst_row->rndr_len = 0;
   dst_row->rndr_cls = NULL;
 }
 
-// Frees up the editor clipboard
+/* Frees an ERow */
+static void bufferFreeERow (void) {
+  for (int row_idx = 0; row_idx < E.num_row; row_idx++) {
+    memset(E.erow[row_idx].row_str, 0, E.erow[row_idx].row_len);
+    memset(E.erow[row_idx].rndr_str, 0, E.erow[row_idx].rndr_len);
+    //memset(E.erow[row_idx].rndr_cls, 0, E.erow[row_idx].rndr_len);
+    free(E.erow[row_idx].row_str);
+    free(E.erow[row_idx].rndr_str);
+    free(E.erow[row_idx].rndr_cls);
+    E.erow[row_idx].row_len = 0;
+    E.erow[row_idx].rndr_len = 0;
+  }
+  E.num_row = 0;
+}
+
+/* Frees up the editor clipboard */
 void bufferFreeEClip (void) {
   if (!E.eclip || !E.eclip->eclip_buff)
     return;
@@ -26,26 +52,72 @@ void bufferFreeEClip (void) {
   free(E.eclip->eclip_buff);
   E.eclip->eclip_buff = NULL;
   E.eclip->num_row_eclip = 0;
+  E.eclip->clip_type = CLIPBOARD_NONE;
 }
 
-void bufferCopyToEClip (int start_row, int end_row) {
-  if (start_row < 0 || end_row >= E.num_row || start_row > end_row)
+/* Copies the content indicated by the start and end positions into
+ * the clipboard. 
+ */
+void bufferCopyToEClip (int row_start, int row_end, int col_start, int col_end) {
+  if (!E.eclip || E.num_row == 0)
+    return;
+  if (row_start < 0 || row_end < 0 || row_start > row_end || row_end >= E.num_row)
     return;
 
   bufferFreeEClip();
 
-  int num_rows = end_row - start_row + 1;
+  int is_inline = (row_start == row_end &&
+                   (col_start != 0 || col_end != E.erow[row_start].row_len));
+  int num_rows = is_inline ? 1 : (row_end - row_start + 1);
+
   E.eclip->num_row_eclip = num_rows;
-  E.eclip->eclip_buff = malloc(sizeof(ERow) * num_rows);
+  E.eclip->clip_type = is_inline ? CLIPBOARD_INLINE : CLIPBOARD_LINE;
+  E.eclip->eclip_buff = calloc(num_rows, sizeof(ERow));
 
-  for (int row_idx = 0; row_idx < num_rows; row_idx++)
-    bufferCopyERow(&E.erow[start_row + row_idx], &E.eclip->eclip_buff[row_idx]);
+  if (is_inline) {
+    bufferCopyERow(&E.erow[row_start], &E.eclip->eclip_buff[0], col_start, col_end);
+    return;
+  }
+
+  for (int row_idx = 0; row_idx < num_rows; row_idx++) {
+    int x_start = (row_idx == 0) ? col_start : 0;
+    int x_end = (row_idx == num_rows - 1) ? col_end : E.erow[row_start + row_idx].row_len;
+    bufferCopyERow(&E.erow[row_start + row_idx], &E.eclip->eclip_buff[row_idx], x_start, x_end);
+  }
 }
 
+/* Pastes the content of the clipboard on the cursor position */
 void bufferPasteEClip (void) {
-  return;
+  if (!E.eclip || E.eclip->num_row_eclip == 0)
+    return;
+
+  if (E.eclip->clip_type == CLIPBOARD_INLINE) {
+    if (E.num_row == 0)
+      erowAppend(0, "", 0);
+    if (E.crsr_y < 0)
+      E.crsr_y = 0;
+    if (E.crsr_y >= E.num_row)
+      E.crsr_y = E.num_row - 1;
+
+    ERow *dst = &E.erow[E.crsr_y];
+    if (E.crsr_x < 0)
+      E.crsr_x = 0;
+    if (E.crsr_x > dst->row_len)
+      E.crsr_x = dst->row_len;
+    erowInsertString(dst, E.crsr_x, E.eclip->eclip_buff[0].row_str,
+                     E.eclip->eclip_buff[0].row_len);
+    E.crsr_x += E.eclip->eclip_buff[0].row_len;
+    return;
+  }
+
+  int insert_row = E.crsr_y;
+  for (int row_idx = 0; row_idx < E.eclip->num_row_eclip; row_idx++) {
+    ERow *src_row = &E.eclip->eclip_buff[row_idx];
+    erowAppend(insert_row + row_idx, src_row->row_str, src_row->row_len);
+  }
 }
 
+/* Frees up all editor buffer elements */
 void bufferFreeBuffer (int buffer_idx) {
   for (int row_idx = 0; row_idx < E.ebuff->num_row_hbuff[buffer_idx]; row_idx++) {
     memset(E.ebuff->erow_hbuff[buffer_idx][row_idx].row_str, 0, E.ebuff->erow_hbuff[buffer_idx][row_idx].row_len);
@@ -61,20 +133,6 @@ void bufferFreeBuffer (int buffer_idx) {
   E.ebuff->num_row_hbuff[buffer_idx] = 0;
   E.ebuff->crsr_x_hbuff[buffer_idx] = 0;
   E.ebuff->crsr_y_hbuff[buffer_idx] = 0;
-}
-
-void bufferFreeERow (void) {
-  for (int row_idx = 0; row_idx < E.num_row; row_idx++) {
-    memset(E.erow[row_idx].row_str, 0, E.erow[row_idx].row_len);
-    memset(E.erow[row_idx].rndr_str, 0, E.erow[row_idx].rndr_len);
-    //memset(E.erow[row_idx].rndr_cls, 0, E.erow[row_idx].rndr_len);
-    free(E.erow[row_idx].row_str);
-    free(E.erow[row_idx].rndr_str);
-    free(E.erow[row_idx].rndr_cls);
-    E.erow[row_idx].row_len = 0;
-    E.erow[row_idx].rndr_len = 0;
-  }
-  E.num_row = 0;
 }
 
 /* Copies the current ERow array of the editor into the buffer at the buffer index. */
@@ -121,7 +179,7 @@ void bufferCopyBufferToERow (int buffer_idx) {
   }
 }
 
-/* The current editor state is saved at each exit from the insert mode. 
+/* The current editor state is saved.
  * If the editor buffer is full, the index is shifted by one, and the last buffer index is filled.
  */
 void bufferSaveEditorState (void) {

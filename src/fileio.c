@@ -4,6 +4,7 @@
 
 #include "fileio.h"
 
+// Creates the render of the row
 void erowRender (ERow * erow) {
   int num_tabs = 0;
   for (int row_idx = 0; row_idx < erow->row_len; row_idx++) {
@@ -69,6 +70,22 @@ void erowInsertChar (ERow * erow, int curr, int ch) {
   memmove(&erow->row_str[curr+1], &erow->row_str[curr], erow->row_len-curr+1);
   erow->row_len++;
   erow->row_str[curr] = ch;
+
+  erowRender(erow);
+  E.dirt_flag_pos++;
+}
+
+void erowInsertString(ERow *erow, int pos, char *s, size_t len) {
+  if (pos < 0)
+    pos = 0;
+  if (pos > erow->row_len)
+    pos = erow->row_len;
+
+  erow->row_str = realloc(erow->row_str, erow->row_len + len + 1);
+  memmove(&erow->row_str[pos + len], &erow->row_str[pos], erow->row_len - pos + 1);
+  memcpy(&erow->row_str[pos], s, len);
+  erow->row_len += len;
+  erow->row_str[erow->row_len] = '\0';
 
   erowRender(erow);
   E.dirt_flag_pos++;

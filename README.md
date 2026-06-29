@@ -18,22 +18,23 @@ The goal is not a complete feature parity, nor the exact same behavior. There wi
 ## Features present
 
 - Viewing and editing any file
-- Three modes: NORMAL, INSERT, COMMAND
+- Modes: NORMAL, INSERT, COMMAND, VISUAL
 - Entering the COMMAND mode with {:}
 - Save and exit commands
 - Processing shell commands in COMMAND mode
 - Basic motions in NORMAL mode (moving inside the editor with one character {h,j,k,l}, word forward and backward with {w,b.e}, WORD forward and backward with {W,B,E}, half page down and up with CTRL+D and CTRL+U)
 - INSERT mode, insert on the cursor (insert) with {i}, after the cursor (append) {a}, insert a line above {O} or below {o}
-- Delete action ({w,b,e} for deleting one word, {W,B,E} for deleting one WORD, deleting one line with {d}, {0} to delete everything in line before cursor, {$} to delete everything in line after cursor)
+- Delete action with {d} ({w,b,e} for deleting one word, {W,B,E} for deleting one WORD, deleting one line with {d}, {0} to delete everything in line before cursor, {$} to delete everything in line after cursor)
 - Arrow keys to move inside the editor in INSERT mode
 - Status and message bars
-- string search functionality (Enter search prompt with {/}, scroll through the document with {n} and {N} keys)
+- String search functionality (Enter search prompt with {/}, scroll through the document with {n} and {N} keys)
 - undo and redo commands, {u} for undo and {Ctrl+r} for redo
+- yank with {y} ({w,b,e} for copying one word, {W,B,E} for copying one WORD, copying one line with {y}, {0} to copy everything in line before cursor, {$} to copy everything in line after cursor)
+- Copy any arbitrary area in the file via VISUAL mode.
+- Paste with {p}, paste after with {P}
 
 ## Features planned
 
-- yank with y
 - action number
-- VISUAL mode
 - syntax highlighting
 - configuration file
