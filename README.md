@@ -38,3 +38,17 @@ The goal is not a complete feature parity, nor the exact same behavior. There wi
 - action number
 - syntax highlighting
 - configuration file
+
+## Dependencies
+The editor is written in pure C and is very lightweight, it only requires glibc and GNU Make as dependencies for building.
+
+## Building Instructions
+For the full release of the editor, run:
+```
+git clone https://github.com/i-JRay-i/jimtexteditor
+cd jimtexteditor/src
+make release
+```
+
+This will create a binary file ```jim``` inside the ```./src``` library.
+

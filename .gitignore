@@ -2,4 +2,4 @@ resources/*
 src/testtext
 src/keymap.conf
 src/*.o
-src/jim
+src/build

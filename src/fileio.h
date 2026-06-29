@@ -1,20 +1,12 @@
 #ifndef JIM_FILEIO_H
 #define JIM_FILEIO_H
 
-#include <ctype.h>
 #include <errno.h>
-#include <sys/types.h>
-#include <string.h>
 #include <fcntl.h>
 #include "term.h"
+#include "input.h"
 #include "output.h"
 
 void openFile(char *);
-void erowAppend(int, char *, size_t);
-void erowAppendString(ERow *, char *, size_t);
-void erowInsertChar(ERow *, int, int);
-void erowInsertString(ERow *, int, char *, size_t);
-void erowDeleteChar(ERow *, int);
-void erowDeleteRow(int);
 
 #endif // JIM_FILEIO_H

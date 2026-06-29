@@ -40,7 +40,23 @@ void editorScroll() {
     E.col_off = E.crsr_x - E.term_width+1;
 }
 
-/* Draws the screen */
+/* Draws the welcome message on an empty page. */
+static void drawWelcomeMessage(OBuf *ob) {
+  char welcome_msg[80];
+  int welcome_msg_len = snprintf(welcome_msg, sizeof(welcome_msg), "JIM Editor - Version %s", JIM_VERSION);
+  if (welcome_msg_len > E.term_height)
+    welcome_msg_len = E.term_height;
+  int padding = (E.term_width - welcome_msg_len)/2;
+  if (padding) {
+    bufAppend(ob, "~", 1);
+    padding--;
+  }
+  while (padding--)
+    bufAppend(ob, " ", 1);
+  bufAppend(ob, welcome_msg, welcome_msg_len);
+}
+
+/* Draws the VISUAL selection area */
 static int visualSelectionContains(int row_idx, int col_idx) {
   if (E.emode != MODE_VISUAL)
     return 0;
@@ -90,25 +106,15 @@ static int visualSelectionContains(int row_idx, int col_idx) {
   return 1;
 }
 
+ /* The main function that prints the contents of the editor struct to the terminal in one refresh loop. 
+  */
 void drawEditorScreen(OBuf *ob) {
   for (int row = 0; row < E.term_height-2; row++) {
     int curr_row = row + E.row_off;
     if (curr_row >= E.num_row) {
       if (E.num_row == 0 && row == E.term_height / 3) { // If there is no file opened
-        char welcome_msg[80];
-        int welcome_msg_len = snprintf(welcome_msg, sizeof(welcome_msg),
-                                       "JIM Editor - Version %s", JIM_VERSION);
-        if (welcome_msg_len > E.term_height)
-          welcome_msg_len = E.term_height;
-        int padding = (E.term_width - welcome_msg_len)/2;
-        if (padding) {
-          bufAppend(ob, "~", 1);
-          padding--;
-        }
-        while (padding--)
-          bufAppend(ob, " ", 1);
-        bufAppend(ob, welcome_msg, welcome_msg_len);
-      } else {
+        drawWelcomeMessage(ob);
+      } else { // If there is no ERow to display
         bufAppend(ob, "~", 1);
       }
     } else { // If there is an ERow to print
@@ -238,6 +244,7 @@ void setCursorPosition(void) {
   }
 }
 
+/* One refresh loop */
 void editorRefreshScreen(void) {
   bufInit(&ob);
 
